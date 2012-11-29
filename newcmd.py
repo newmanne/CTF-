@@ -12,7 +12,7 @@ from api import Vector2
 import math
 import sys
 from api.gameinfo import BotInfo
-
+from bot import Bot
 
 def distance(vector1, vector2):
     return (vector1-vector2).length();
@@ -110,9 +110,9 @@ class NewCommander(Commander):
             if len(self.defenders.values()) < self.numOfDefWanted:
                 j = len(self.defenders.values())
                 if j%2 == 0:
-                    self.defenders[self.HORIZONTAL] = (bot, Vector2(1.0, 0), None)
+                    self.defenders[self.HORIZONTAL] = Bot(bot)
                 else:
-                    self.defenders[self.VERTICAL] = (bot, Vector2(0, 1.0), None)
+                    self.defenders[self.VERTICAL] = Bot(bot, defending_direction=Vector2(0, 1))
             else:
                 #set up attack
                 pass
@@ -120,41 +120,41 @@ class NewCommander(Commander):
         
     def defensive(self):
         target = self.game.team.flag.position + self.targetLeft
-        if len(self.defenders.keys()) < 2:
+        if len(self.defenders) < 2:
             self.initialSetup()
         enemiesNotTargeted = list(self.closeEnemies)
         for botKey in self.defenders.keys():
             botValues = self.defenders[botKey]
-            if botValues[2] and botValues[2] in enemiesNotTargeted:
-                enemiesNotTargeted.remove(botValues[2])
+            if botValues.enemy_targeting and botValues.enemy_targeting in enemiesNotTargeted:
+                enemiesNotTargeted.remove(botValues.enemy_targeting)
                     
         for i, botKey in enumerate(self.defenders.keys()):
-            botTuple = self.defenders[botKey]
-            bot = botTuple[0]
-            if bot.health<=0:
+            bot = self.defenders[botKey]
+            bot_info = bot.bot_info
+            if bot_info.health<=0:
                 del self.defenders[botKey]
-            elif enemiesNotTargeted and (not botTuple[2] or botTuple[2].health<=0):
-                if not self.inArea(bot.position, target):
-                    self.issue(commands.Charge, bot, target)
+            elif enemiesNotTargeted and (not bot.enemy_targeting or bot.enemy_targeting.health <= 0):
+                if not self.inArea(bot_info.position, target):
+                    self.issue(commands.Charge, bot_info, target)
                 else:
-                    self.issue(commands.Defend, bot, facingDirection = enemiesNotTargeted[0].position - bot.position)
-                    self.defenders[botKey] = (bot, botTuple[1], enemiesNotTargeted[0])
+                    self.issue(commands.Defend, bot_info, facingDirection = enemiesNotTargeted[0].position - bot_info.position)
+                    self.defenders[botKey] = Bot(bot_info=bot_info, defending_direction=bot.defending_direction, enemy_targeting=enemiesNotTargeted[0])
                     enemiesNotTargeted.remove(enemiesNotTargeted[0])
             else:
-                if bot.state == BotInfo.STATE_IDLE:
-                    if not self.inArea(bot.position, target):
-                        self.issue(commands.Charge, bot, target)
+                if bot_info.state == BotInfo.STATE_IDLE:
+                    if not self.inArea(bot_info.position, target):
+                        self.issue(commands.Charge, bot_info, target)
                     else:
-                        self.issue(commands.Defend, bot, facingDirection = [(botTuple[1], 1.5), (-botTuple[1], 1.5)])
-                elif botTuple[2]:
-                    if botTuple[2].health<=0 or not botTuple[2] in bot.visibleEnemies:
-                        self.defenders[botKey] = (bot, botTuple[1], None)
-                        if not self.inArea(bot.position, target):
-                            self.issue(commands.Charge, bot, target)
+                        self.issue(commands.Defend, bot_info, facingDirection = [(bot.defending_direction, 1.5), (-bot.defending_direction, 1.5)])
+                elif bot.enemy_targeting:
+                    if bot.enemy_targeting.health<=0 or not bot.enemy_targeting in bot_info.visibleEnemies:
+                        self.defenders[botKey] = Bot(bot_info=bot_info, defending_direction=bot.defending_direction)
+                        if not self.inArea(bot_info.position, target):
+                            self.issue(commands.Charge, bot_info, target)
                         else:
-                            self.issue(commands.Defend, bot, facingDirection = [(botTuple[1], 1.5), (-botTuple[1], 1.5)])
-                    elif not self.inVOF(bot, botTuple[2]):
-                        self.issue(commands.Defend, bot, facingDirection = botTuple[2].position - bot.position)                    
+                            self.issue(commands.Defend, bot_info, facingDirection = [(bot.defending_direction, 1.5), (-bot.defending_direction, 1.5)])
+                    elif not self.inVOF(bot_info, bot.enemy_targeting):
+                        self.issue(commands.Defend, bot_info, facingDirection = bot_info.enemy_targeting.position - bot_info.position)                    
             
     
     def tick(self):
@@ -170,7 +170,7 @@ class NewCommander(Commander):
                             
 
     def shutdown(self):
-        """Use this function to teardown your bot after the game is over, or perform an
+        """Use this function to teardown your bot_info after the game is over, or perform an
         analysis of the data accumulated during the game."""
 
         pass

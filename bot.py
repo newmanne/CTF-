@@ -1,4 +1,5 @@
-import util
+from util import distanceBetween
+from api import Vector2
 
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
@@ -9,12 +10,14 @@ def enum(*sequential, **named):
 class Bot():
     states = enum('DEFENDING_HORIZONTAL', 'DEFENDING_VERTICAL', 'ATTACKING')
     
-    def __init__(self, bot):
-        self.bot = bot
-        self.enemy_targeting = None
-        self.state = None
-        self.attacking_partner = None
+    def __init__(self, bot_info, enemy_targeting = None, state = None, attacking_partner = None, how_much_danger = 0, defending_direction = Vector2(1, 0)):
+        self.bot_info = bot_info
+        self.enemy_targeting = enemy_targeting
+        self.state = state
+        self.attacking_partner = attacking_partner
         self.how_much_danger = 0
+        self.defending_direction = defending_direction
         
     def getClosestEnemy(self):
-        return reduce(lambda x,y: x if util.distanceBetween(x, self.bot.position) <= util.distanceBetween(y, self.bot.position) else y, self.bot.visibleEnemies)
+        return min(self.bot_info.visibleEnemies, key=lambda enemy: distanceBetween(enemy.position, self.bot_info.position))
+    
