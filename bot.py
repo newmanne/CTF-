@@ -17,9 +17,10 @@ class Bot():
         self.attacking_partner = attacking_partner
         self.how_much_danger = 0
         self.defending_direction = defending_direction
+        self.weHaveFlag = 0
         
     def getClosestEnemy(self):
-        return min(self.bot_info.visibleEnemies, key=lambda enemy: distanceBetween(enemy.position, self.bot_info.position))
+        return min(self.bot_info.visibleEnemies, key=lambda enemy: distanceBetween(enemy, self.bot_info))
         
     def __getattr__(self, attr):
         # see if this object has attr
