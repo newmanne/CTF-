@@ -308,17 +308,17 @@ class PlaceholderCommander(Commander):
             elif (attacker.state == BotInfo.STATE_IDLE):
                 if not self.inArea(attacker.position, enemyFlagScore + self.directions[i%4]):
                     attacker.role= Bot.ROLE_MOVING
-                    target = enemyFlagScore + self.directions[i%4]
+                    target = enemyFlagScore + 2*self.directions[i%4]
                     flank = self.getFlankingPosition(attacker, target)
                     if (target - flank).length() > (attacker.position - target).length():
                         if not aliveEnemies:
-                            self.issue(commands.Attack,attacker, enemyFlagScore + self.directions[i%4] ,lookAt=target)
+                            self.issue(commands.Attack,attacker, target ,lookAt=target)
                         else:
-                            self.issue(commands.Attack, attacker, enemyFlagScore + self.directions[i%4], lookAt=attacker.getClosestEnemy().position)
+                            self.issue(commands.Attack, attacker, target, lookAt=attacker.getClosestEnemy().position)
                     else:
                         flank = self.level.findNearestFreePosition(flank)
                         if not aliveEnemies:
-                            self.issue(commands.Attack,attacker, flank ,lookAt=enemyFlagScore)
+                            self.issue(commands.Charge ,attacker, flank)
                         else:
                             self.issue(commands.Attack, attacker, flank, lookAt=attacker.getClosestEnemy().position)
                 else:
