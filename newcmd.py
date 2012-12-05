@@ -272,7 +272,7 @@ class PlaceholderCommander(Commander):
         for flagBearer in self.flagBearers:
             aliveEnemies = filter(lambda x: x.health > 0, flagBearer.visibleEnemies)
             enemyFlag = self.game.enemyTeam.flag.position
-            if flagBearer and flagBearer.state == BotInfo.STATE_IDLE:
+            if flagBearer and (flagBearer.state == BotInfo.STATE_IDLE or (flagBearer.state == BotInfo.STATE_DEFENDING and flagBearer.flag)):
                 if weHaveFlag:
                     if flagBearer.flag:
                         target = self.game.team.flagScoreLocation
@@ -325,7 +325,7 @@ class PlaceholderCommander(Commander):
                     attacker.role = Bot.ROLE_DEFENDING
                     
             if attacker.role == Bot.ROLE_DEFENDING:
-                if attacker.spawnTrigger == 1 and self.game.match.timeToNextRespawn > 5 and self.game.match.timeToNextRespawn <  self.fulltimeToRespawn - 10 and not attacker.visibleEnemies:
+                if attacker.spawnTrigger == 1 and self.game.match.timeToNextRespawn > 5 and self.game.match.timeToNextRespawn <  self.fulltimeToRespawn - 3 and not attacker.visibleEnemies:
                     attacker.spawnTrigger = 0
                     attacker.defenceTrigger = 0
                 if self.game.match.timeToNextRespawn < 5 and attacker.spawnTrigger == 0:
