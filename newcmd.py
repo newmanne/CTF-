@@ -211,3 +211,65 @@ class NewCommander(Commander):
         analysis of the data accumulated during the game."""
 
         pass
+    
+class PlaceholderCommander(Commander):
+    """
+    Rename and modify this class to create your own commander and add mycmd.Placeholder
+    to the execution command you use to run the competition.
+    """
+    up = Vector2(0,1)
+    left = Vector2(1,0)
+    
+    directions = (up, left, -up, -left)
+
+    def initialize(self):
+        """Use this function to setup your bot before the game starts."""
+        self.verbose = True    # display the command descriptions next to the bot labels
+        self.attackers = set()
+        self.flagBearers = set()
+        self.numOfBotsAlive = 0
+    
+    
+    def inArea(self, position, target):
+        if distance(position, target) < 0.75:
+            return True
+        return False
+
+    def tick(self):
+        """Override this function for your own bots.  Here you can access all the information in self.game,
+        which includes game information, and self.level which includes information about the level."""
+        self.numOfBotsAlive = len(self.game.bots_alive)
+        # for all bots which aren't currently doing anything
+        for bot in self.game.bots_available:
+            if len(self.attackers) < 4:
+                self.attackers.add(Bot(bot))
+            elif not self.flagBearers:
+                self.flagBearers.add(Bot(bot))
+        for flagBearer in self.flagBearers:
+            if flagBearer and flagBearer.state == BotInfo.STATE_IDLE:
+                if flagBearer.flag:
+                    target = self.game.team.flagScoreLocation
+                    self.issue(commands.Charge, flagBearer, target)
+                else:
+                    enemyFlag = self.game.enemyTeam.flag.position
+                    if not flagBearer.visibleEnemies:
+                        self.issue(commands.Attack, flagBearer, enemyFlag, lookAt=enemyFlag,description = 'Run to enemy flag')
+                    else:
+                        self.issue(commands.Attack, flagBearer, enemyFlag, lookAt=flagBearer.getClosestEnemy().position)
+                    
+        enemyFlagScore = self.game.enemyTeam.flagScoreLocation
+        for i, attacker in enumerate(self.attackers):
+            if attacker.health >0 and attacker.state == BotInfo.STATE_IDLE:
+                if not self.inArea(attacker.position, enemyFlagScore + self.directions[i%4]):
+                    if not attacker.visibleEnemies:
+                        self.issue(commands.Attack,attacker, enemyFlagScore + self.directions[i%4] ,lookAt=enemyFlagScore)
+                    else:
+                        self.issue(commands.Attack, attacker, enemyFlagScore + self.directions[i%4], lookAt=attacker.getClosestEnemy().position)
+                else:
+                    self.issue(commands.Defend, attacker, facingDirection=self.directions[i%4])
+
+    def shutdown(self):
+        """Use this function to teardown your bot after the game is over, or perform an
+        analysis of the data accumulated during the game."""
+
+        pass
