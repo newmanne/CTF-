@@ -8,7 +8,8 @@ def enum(*sequential, **named):
     return type('Enum', (), enums)
 
 class Bot():
-    states = enum('DEFENDING_HORIZONTAL', 'DEFENDING_VERTICAL', 'ATTACKING')
+    ROLE_DEFENDING = 0
+    ROLE_MOVING = 1
     
     def __init__(self, bot_info, enemy_targeting = None, role = None, attacking_partner = None, how_much_danger = 0, defending_direction = Vector2(1, 0)):
         self.bot_info = bot_info
@@ -17,9 +18,13 @@ class Bot():
         self.attacking_partner = attacking_partner
         self.how_much_danger = 0
         self.defending_direction = defending_direction
+        self.weHaveFlag = 0
+        self.spawnTrigger = 0
+        self.defenceTrigger = 0
         
     def getClosestEnemy(self):
-        return min(self.bot_info.visibleEnemies, key=lambda enemy: distanceBetween(enemy.position, self.bot_info.position))
+        aliveEnemies = filter(lambda x: x.health > 0, self.bot_info.visibleEnemies)
+        return min(aliveEnemies, key=lambda enemy: distanceBetween(enemy, self.bot_info))
         
     def __getattr__(self, attr):
         # see if this object has attr
