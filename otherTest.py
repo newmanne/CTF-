@@ -75,17 +75,13 @@ class KilroyCommander(Commander):
         if len(self.game.match.combatEvents) > self.lastEventCount:
             lastCombatEvent = self.game.match.combatEvents[-1]
             #self.log.info('event:'+str(lastCombatEvent.type))
-            if lastCombatEvent.instigator is not None:
-                print "event:%d %f %s %s" % (lastCombatEvent.type,lastCombatEvent.time,lastCombatEvent.instigator.name,lastCombatEvent.subject.name)
-            else:
-                print "event:%d %f" % (lastCombatEvent.type,lastCombatEvent.time)
             self.lastEventCount = len(self.game.match.combatEvents)
 
             #check for any nearby dead teammates to turn towards                
             if lastCombatEvent.type == 1 and (lastCombatEvent.subject.name.find(self.game.team.name) != -1):
                 #face our last killed team member
                 deadBot = self.game.bots[lastCombatEvent.subject.name]
-                print "%s " % (deadBot.name)
+                #print "%s " % (deadBot.name)
 
                 deadBotDefend = False   
                 for bot in self.game.bots_alive:
@@ -94,7 +90,7 @@ class KilroyCommander(Commander):
 
                     if (deadBot.position - bot.position).length() < 20:
                         deadBotDefend = True    
-                        print "%s defend deadBot" % (bot.name)
+                        #print "%s defend deadBot" % (bot.name)
                         self.issue(commands.Defend, bot, (deadBot.position - bot.position), description = 'defending facing enemy bot')
 
                 if deadBotDefend:
@@ -116,7 +112,7 @@ class KilroyCommander(Commander):
                         enemyDist = (visibleEnemy.position - bot.position).length() 
                         if enemyDist < closestEnemyDist:
                             closestEnemyDist = enemyDist
-                            print "visibleEnemy:%s %f" % (visibleEnemy.name,enemyDist)
+                            #print "visibleEnemy:%s %f" % (visibleEnemy.name,enemyDist)
                             #self.log.info(bot.visibleEnemies)
                             #enemyPosition = bot.visibleEnemies[0].position             
                             enemyPosition = visibleEnemy.position
@@ -134,7 +130,7 @@ class KilroyCommander(Commander):
                 if (enemyPosition - bot.position).length() < 30:
                     #self.log.info(enemyPosition-bot.position) 
                     #self.log.info(bot.facingDirection) 
-                    print "%s defending visible bot" % (bot.name)
+                    #print "%s defending visible bot" % (bot.name)
                     self.issue(commands.Defend, bot, (enemyPosition - bot.position), description = 'defending facing enemy bot')
 
         #periodically reset back to facing enemy flag 
@@ -143,7 +139,7 @@ class KilroyCommander(Commander):
             for bot in self.game.bots_alive:
                 if bot == self.attacker:
                     continue
-                print "%s defending facing flag" % (bot.name)
+                #print "%s defending facing flag" % (bot.name)
                 self.moveOrFace(bot)
                     
     ####

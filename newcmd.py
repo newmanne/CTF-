@@ -244,7 +244,7 @@ class PlaceholderCommander(Commander):
         self.lastNumOfAttackers = 0
         
         self.numOfBotsInital = len(self.game.bots_alive)
-        self.maxDefenders = min(self.numOfBotsInital -1, 4)
+        self.maxDefenders = self.numOfBotsInital -1
         self.attackersLast = self.maxDefenders
         numOfBotsAlive = len(self.game.bots_alive)
         # for all bots which aren't currently doing anything
@@ -265,37 +265,47 @@ class PlaceholderCommander(Commander):
         which includes game information, and self.level which includes information about the level."""
         
         numOfBotsAlive = len(self.game.bots_alive)
-
+        
+        aliveAttackers = filter(lambda x: x.health > 0, self.attackers)
+        aliveFlaggers = filter(lambda x: x.health > 0, self.flagBearers)
+        if not aliveFlaggers:
+            for flaggers in self.flagBearers:
+                self.attackers.add(flaggers)
+            self.flagBearers.clear()
+            if aliveAttackers:
+                flagBearer = aliveAttackers[0]
+                self.attackers.remove(aliveAttackers[0])
+                self.flagBearers.add(flagBearer)
         
         weHaveFlag = map(lambda x: 1 if x.flag else 0, self.flagBearers)
         weHaveFlag = 1 in weHaveFlag
         for flagBearer in self.flagBearers:
             aliveEnemies = filter(lambda x: x.health > 0, flagBearer.visibleEnemies)
             enemyFlag = self.game.enemyTeam.flag.position
-            if flagBearer and (flagBearer.state == BotInfo.STATE_IDLE or (flagBearer.state == BotInfo.STATE_DEFENDING and flagBearer.flag)):
+            if flagBearer.state == BotInfo.STATE_IDLE or (flagBearer.state == BotInfo.STATE_DEFENDING and flagBearer.flag) or (flagBearer.enemyDefendTrigger and flagBearer.enemyDefendTrigger.health <=0):
                 if weHaveFlag:
                     if flagBearer.flag:
                         target = self.game.team.flagScoreLocation
                         self.issue(commands.Charge, flagBearer, target)
                     else:
-                        if not self.inArea(flagBearer.position, enemyFlag):
+                        if self.inArea(flagBearer.position, self.game.team.flagScoreLocation):
+                            if self.attackers:
+                                newFlagBearer = self.attackers.pop()
+                                self.flagBearers.add(newAttacker)
+                            self.flagBearers.remove(flagBearer)
+                            self.attackers.add(flagBearer)
+                        elif not self.inArea(flagBearer.position, enemyFlag):
                             self.issue(commands.Attack, flagBearer, enemyFlag, lookAt=enemyFlag,description = 'Run to enemy flag')                            
                 else:
                     if not aliveEnemies:
                         self.issue(commands.Attack, flagBearer, enemyFlag, lookAt=enemyFlag,description = 'Run to enemy flag')
                     else:
-                        self.issue(commands.Attack, flagBearer, enemyFlag, lookAt=flagBearer.getClosestEnemy().position)
+                        self.smartAttack(flagBearer, enemyFlag)
                     
         enemyFlagScore = self.game.enemyTeam.flagScoreLocation
         aliveAttackers = filter(lambda x: x.health > 0, self.attackers)
-        numOfAttackers = len(aliveAttackers)
-        if numOfAttackers < self.lastNumOfAttackers:
-            self.lastNumOfAttackers = numOfAttackers
-            for attacker in aliveAttackers:
-                if attacker.role==Bot.ROLE_DEFENDING and attacker.spawnTrigger != 1:
-                    attacker.defenceTrigger = 0
         
-        defendingBotNumber = 0
+        
         for i, attacker in enumerate(aliveAttackers):
             aliveEnemies = filter(lambda x: x.health > 0, attacker.visibleEnemies)
             if attacker.flag:
@@ -305,56 +315,103 @@ class PlaceholderCommander(Commander):
                 self.attackers.remove(attacker)
                 self.flagBearers.add(attacker)
                 continue        
-            elif (attacker.state == BotInfo.STATE_IDLE):
+            elif attacker.state == BotInfo.STATE_IDLE or attacker.enemyDefendTrigger:
                 if not self.inArea(attacker.position, enemyFlagScore + self.directions[i%4]):
                     attacker.role= Bot.ROLE_MOVING
-                    target = enemyFlagScore + 2*self.directions[i%4]
+                    target = enemyFlagScore + self.directions[i%4]
                     flank = self.getFlankingPosition(attacker, target)
-                    if (target - flank).length() > (attacker.position - target).length():
+                    if (target - flank).length() > (attacker.position - target).length() or i%2 == 1:
                         if not aliveEnemies:
                             self.issue(commands.Attack,attacker, target ,lookAt=target)
                         else:
-                            self.issue(commands.Attack, attacker, target, lookAt=attacker.getClosestEnemy().position)
+                            self.smartAttack(attacker, target)
                     else:
                         flank = self.level.findNearestFreePosition(flank)
                         if not aliveEnemies:
                             self.issue(commands.Charge ,attacker, flank)
                         else:
-                            self.issue(commands.Attack, attacker, flank, lookAt=attacker.getClosestEnemy().position)
+                            self.smartAttack(attacker, target)
                 else:
                     attacker.role = Bot.ROLE_DEFENDING
                     
-            if attacker.role == Bot.ROLE_DEFENDING:
-                if attacker.spawnTrigger == 1 and self.game.match.timeToNextRespawn > 5 and self.game.match.timeToNextRespawn <  self.fulltimeToRespawn - 3 and not attacker.visibleEnemies:
-                    attacker.spawnTrigger = 0
-                    attacker.defenceTrigger = 0
-                if self.game.match.timeToNextRespawn < 5 and attacker.spawnTrigger == 0:
-                    attacker.spawnTrigger = 1
-                    attacker.defenceTrigger = -1
-                    self.issue(commands.Defend, attacker, facingDirection=self.level.findRandomFreePositionInBox(self.game.enemyTeam.botSpawnArea) - attacker.position)
-                elif attacker.defenceTrigger == 0:
-                    attacker.defenceTrigger = 1
-                    if numOfAttackers == 1:
-                        self.issue(commands.Defend, attacker, facingDirection=[(self.directions[0], 1), (self.directions[1], 1), (self.directions[2], 1), (self.directions[3], 1)])
-                    elif numOfAttackers == 2:
-                        if defendingBotNumber == 0:
-                            self.issue(commands.Defend, attacker, facingDirection=[(self.directions[0], 1), (self.directions[2], 1)])
-                            defendingBotNumber = 1
-                        elif defendingBotNumber == 1:
-                            self.issue(commands.Defend, attacker, facingDirection=[(self.directions[1], 1), (self.directions[3], 1)])
-                    elif numOfAttackers == 3:
-                        if defendingBotNumber == 0:
-                            self.issue(commands.Defend, attacker, facingDirection=self.directions[1])
-                            defendingBotNumber = 1
-                        elif defendingBotNumber == 1:
-                            self.issue(commands.Defend, attacker, facingDirection=self.directions[3])
-                            defendingBotNumber =2
-                        elif defendingBotNumber == 2:
-                            self.issue(commands.Defend, attacker, facingDirection=[(self.directions[0], 1), (self.directions[2], 1)])
-                    else:
-                        self.issue(commands.Defend, attacker, facingDirection=self.directions[i%4])
+        aliveDefenders = filter(lambda x: x.health > 0 and x.role == Bot.ROLE_DEFENDING, self.attackers)
+        numOfAttackers = len(aliveDefenders)
+        if numOfAttackers < self.lastNumOfAttackers:
+            self.lastNumOfAttackers = numOfAttackers
+            for attacker in aliveAttackers:
+                if attacker.role==Bot.ROLE_DEFENDING and attacker.spawnTrigger != 1:
+                    attacker.defenceTrigger = 0        
+        for i, attacker in enumerate(aliveDefenders):
+            if attacker.spawnTrigger == 1 and self.game.match.timeToNextRespawn > 5 and self.game.match.timeToNextRespawn <  self.fulltimeToRespawn - 3 and not attacker.visibleEnemies:
+                attacker.spawnTrigger = 0
+                attacker.defenceTrigger = 0
+            if self.game.match.timeToNextRespawn < 5 and attacker.spawnTrigger == 0:
+                attacker.spawnTrigger = 1
+                attacker.defenceTrigger = -1
+                self.issue(commands.Defend, attacker, facingDirection=self.level.findRandomFreePositionInBox(self.game.enemyTeam.botSpawnArea) - attacker.position)
+            elif attacker.defenceTrigger == 0:
+                attacker.defenceTrigger = 1
+                if numOfAttackers == 1:
+                    self.issue(commands.Defend, attacker, facingDirection=[(self.directions[0], 1), (self.directions[1], 1), (self.directions[2], 1), (self.directions[3], 1)])
+                elif numOfAttackers == 2:
+                    if i == 0:
+                        self.issue(commands.Defend, attacker, facingDirection=[(self.directions[0], 1), (self.directions[2], 1)])
+                    elif i == 1:
+                        self.issue(commands.Defend, attacker, facingDirection=[(self.directions[1], 1), (self.directions[3], 1)])
+                elif numOfAttackers == 3:
+                    if i == 0:
+                        self.issue(commands.Defend, attacker, facingDirection=self.directions[1])
+                    elif i == 1:
+                        self.issue(commands.Defend, attacker, facingDirection=self.directions[3])
+                    elif i == 2:
+                        self.issue(commands.Defend, attacker, facingDirection=[(self.directions[0], 1), (self.directions[2], 1)])
+                else:
+                    self.issue(commands.Defend, attacker, facingDirection=self.directions[i%4])
+    def inVOF(self, bot, enemy):
+        facing = bot.facingDirection
+        neededDir = enemy.position - bot.position
+        cosTheta = (facing.x*neededDir.x + facing.y*neededDir.y)/(facing.length()*neededDir.length())
+        if cosTheta >1:      
+            cosTheta = 1
+        if math.acos(cosTheta) <= self.level.FOVangle/2:
+            return True
+        return False
+    
+    def smartAttack(self, bot, aim):
+        aliveEnemies = filter(lambda x: x.health > 0, bot.visibleEnemies)
+        mainEnemy = bot.getClosestEnemy()
+        for enemy in aliveEnemies:
+            if self.inVOF( enemy, bot) and distanceBetween(bot, mainEnemy) < self.level.firingDistance:
+                self.issue(commands.Attack, bot,aim, lookAt=enemy.position)
+                return
+        if not bot.enemyDefendTrigger:
+            bot.enemyDefendTrigger = mainEnemy
+            self.issue(commands.Defend, bot, facingDirection= mainEnemy.position - bot.position)
+        elif not bot.enemyDefendTrigger in bot.visibleEnemies:
+            bot.enemyDefendTrigger = None
+            self.issue(commands.Attack, bot,aim, lookAt=enemy.position)
 
+            
+#            bot.enemyDefendTrigger = mainEnemy
+#            ours = bot.position
+#            theirs = mainEnemy.position
+#            middle = (theirs + ours) / 2.0
+#    
+#            # Now figure out the flaking directions, assumed perpendicular.
+#            d = (ours - theirs)
+#            self.left = Vector2(-d.y, d.x).normalized()
+#            self.right = Vector2(d.y, -d.x).normalized()
+#            self.front = Vector2(d.x, d.y).normalized()
+#            target = theirs
+#            flank = self.getFlankingPosition(bot,  target)
+#            if (target - flank).length() > (bot.position - target).length():
+#                self.issue(commands.Attack,bot, target ,lookAt=target)
+#            else:
+#                flank = self.level.findNearestFreePosition(flank)
+#                self.issue(commands.Attack, bot,flank, lookAt=target)
+            
 
+            
                     
     def getFlankingPosition(self, bot, target):
         flanks = [target + f * 16.0 for f in [self.left, self.right]]

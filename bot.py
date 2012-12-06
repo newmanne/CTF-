@@ -21,6 +21,7 @@ class Bot():
         self.weHaveFlag = 0
         self.spawnTrigger = 0
         self.defenceTrigger = 0
+        self.enemyDefendTrigger = None
         
     def getClosestEnemy(self):
         aliveEnemies = filter(lambda x: x.health > 0, self.bot_info.visibleEnemies)
