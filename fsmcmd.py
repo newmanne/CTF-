@@ -1,6 +1,7 @@
 # Your AI for CTF must inherit from the base Commander class.  See how this is
 # implemented by looking at the commander.py in the ./api/ folder.
 from api import Commander
+import random
 
 # The maps for CTF are layed out along the X and Z axis in space, but can be
 # effectively be considered 2D.
@@ -25,6 +26,8 @@ class FSMCommander(Commander):
             self.numOfDefenders = len(aliveDefenders)
             self.defendingGroup.reAssignRoles()
         
+        num = len(self.bots)
+        bots = list(self.bots)
         for bot in self.bots:
             bot.update()
             
@@ -48,6 +51,7 @@ class FSMCommander(Commander):
             return position, (0,0)
     
     def initialize(self):
+        self.verbose = True
         self.bots = set()
         self.defenders = []
         self.attackers = []
@@ -57,10 +61,10 @@ class FSMCommander(Commander):
             bot = Bot(bot_info, self)
             self.bots.add(bot)
             if len(self.defenders) < self.numOfDefenders:                
-                bot.initalState = DefendingSomething(bot, teamPosition, priority=1)                
+                bot.initalState = DefendingSomething(bot, self.level.findNearestFreePosition(teamPosition), priority=1)                
                 self.defenders.append(bot)    
             elif len(self.attackers) < self.numOfAttackers:
-                bot.initalState = DefendingSomething(bot, enemyPosition)                
+                bot.initalState = DefendingSomething(bot, self.level.findNearestFreePosition(enemyPosition))                
                 self.attackers.append(bot)            
             else:
                 bot.initalState = AttackPostition(bot, self.game.enemyTeam.flag.position)
