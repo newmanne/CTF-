@@ -6,7 +6,7 @@ import random
 # The maps for CTF are layed out along the X and Z axis in space, but can be
 # effectively be considered 2D.
 from api import Vector2
-from bot import Bot, DefendingGroup
+from bot import Bot, DefendingGroup, Squad, Goal
 from states import  *
 
 
@@ -16,19 +16,11 @@ class FSMCommander(Commander):
     edgeDistance = 10
     
     def tick(self):
-        aliveAttackers = filter(lambda x: x.health > 0, self.attackers)
-        if len(aliveAttackers) != self.numOfAttackers:
-            self.numOfAttackers = len(aliveAttackers)
-            self.attackingGroup.reAssignRoles()
-            
-        aliveDefenders = filter(lambda x: x.health > 0, self.defenders)
-        if len(aliveDefenders) != self.numOfDefenders:
-            self.numOfDefenders = len(aliveDefenders)
-            self.defendingGroup.reAssignRoles()
-        
-        num = len(self.bots)
+      
         bots = list(self.bots)
-        for bot in self.bots:
+        for squad in self.squads:
+            squad.update()
+        for bot in bots:
             bot.update()
             
     def isNearEdge(self, xory, position):
@@ -56,22 +48,21 @@ class FSMCommander(Commander):
         self.defenders = []
         self.attackers = []
         teamPosition, isTeamCorner = self.getStrategicPostion(self.game.team.flag.position)
+        teamPosition = self.level.findNearestFreePosition(teamPosition)
         enemyPosition, isEnemyCorner = self.getStrategicPostion(self.game.enemyTeam.flagScoreLocation)
-        for bot_info in self.game.bots_available:
+        enemyPosition = self.level.findNearestFreePosition(enemyPosition)
+        for i, bot_info in enumerate(self.game.bots_available):
             bot = Bot(bot_info, self)
-            self.bots.add(bot)
             if len(self.defenders) < self.numOfDefenders:                
-                bot.initalState = DefendingSomething(bot, self.level.findNearestFreePosition(teamPosition), priority=1)                
                 self.defenders.append(bot)    
             elif len(self.attackers) < self.numOfAttackers:
-                bot.initalState = DefendingSomething(bot, self.level.findNearestFreePosition(enemyPosition))                
-                self.attackers.append(bot)            
+                self.attackers.append(bot)
+            elif (i%2) == 0:
+                self.attackers.append(bot) 
             else:
-                bot.initalState = AttackPostition(bot, self.game.enemyTeam.flag.position)
+                self.defenders.append(bot) 
                 
-        self.defendingGroup = DefendingGroup(self.defenders, isTeamCorner)
-        self.attackingGroup = DefendingGroup(self.attackers, isEnemyCorner)
-        for bot in self.defenders:
-            bot.defendingGroup = self.defendingGroup
-        for bot in self.attackers:
-            bot.defendingGroup = self.attackingGroup
+        self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=1))
+        self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner))
+        
+        self.squads = [self.defendingGroup, self.attackingGroup]
