@@ -26,8 +26,7 @@ class GlobalState(State):
     #Check if you have flag
     #Gather List Enemies/Friendlies
     def execute(self):
-        if(self.bot.flag and not self.bot.weHaveFlag):
-            self.bot.changeState(ReturningFlag(self.bot))
+        pass
     
 class DefendingSomething(State):
     
@@ -37,18 +36,17 @@ class DefendingSomething(State):
         self.priority = priority
         
     def execute(self):
-        aliveEnemies = filter(lambda x: x.health > 0, self.bot.visibleEnemies)
+        aliveEnemies = [enemy for enemy in self.bot.visibleEnemies if enemy.health > 0]
         if aliveEnemies:
-            if any(map(lambda x: inVOF(self.bot, x, self.bot.commander.level.FOVangle),  aliveEnemies)):
+            if any(map(lambda x: inVOF(self.bot, x, self.bot.commander.level.fieldOfViewAngles[2]),  aliveEnemies)):
                 self.bot.changeState(DefendingAgainst(self.bot, self.bot.getClosestEnemy()))
-        elif self.bot.defenceTrigger == 1:
+        if self.bot.defenceTrigger == 1:
             self.bot.defenceTrigger = 0
             #self.bot.facingDirection = self.bot.defending_direction
             self.bot.commander.issue(commands.Defend, self.bot, facingDirection =self.bot.defending_direction, description="Defending Position")
             
     def enter(self):
         if inArea(self.bot.position, self.position):
-            print self.bot.defending_direction
             self.bot.commander.issue(commands.Defend, self.bot, facingDirection = self.bot.defending_direction, description="Defending Position")
     
 class DefendingAgainst(State):
@@ -60,18 +58,22 @@ class DefendingAgainst(State):
     def execute(self):
         if (self.enemy.health <= 0 or self.enemy not in self.bot.visibleEnemies):
             self.bot.changeState(self.bot.prevState.pop())
-        elif not inVOF(self.bot, self.enemy, self.bot.commander.level.FOVangle):
+        elif not inVOF(self.bot, self.enemy, self.bot.commander.level.fieldOfViewAngles[2]):
             self.bot.commander.issue(commands.Defend, self.bot, facingDirection = self.enemy.position - self.bot.position, description="Defending Against")
     
     def enter(self):
-        if not inVOF(self.bot, self.enemy, self.bot.commander.level.FOVangle):
+        if not inVOF(self.bot, self.enemy,  self.bot.commander.level.fieldOfViewAngles[2]):
             self.bot.commander.issue(commands.Defend, self.bot, facingDirection = self.enemy.position - self.bot.position, description="Defending Against")
 
 class AttackPostition(State):
     
-    def __init__(self, bot, position):
+    def __init__(self, bot, position, lookAt=None):
         self.bot = bot
-        self.position = position   
+        self.position = position
+        if  (isinstance(self.position, list)):
+            self.lookAt = None
+        else:
+            self.lookAt = lookAt
     
     def execute(self):
         aliveEnemies = filter(lambda x: x.health > 0, self.bot.visibleEnemies)
@@ -82,10 +84,10 @@ class AttackPostition(State):
             if distanceBetween(self.bot, enemy) > self.bot.commander.level.firingDistance + 2:
                 self.bot.changeState(AttackingSomeone(self.bot, enemy))
         elif self.bot.state == 1:
-            self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt=self.position, description="Attacking Position")
+            self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt=self.lookAt, description="Attacking Position")
    
     def enter(self):
-        self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt=self.position, description="Attacking Position")
+        self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt=self.lookAt, description="Attacking Position")
 
 class ChargePosition(State):
     
@@ -94,13 +96,14 @@ class ChargePosition(State):
         self.position = position   
     
     def execute(self):
-        aliveEnemies = filter(lambda x: x.health > 0, self.bot.visibleEnemies)
-        if (len(aliveEnemies) > 1):
-            self.bot.changeState(AvoidSomething(self.bot, map(lambda x:x.position, aliveEnemies)))
-        elif (len(aliveEnemies) == 1):
-            enemy = aliveEnemies[0]
-            if(inVOF(enemy, self.bot, self.bot.commander.level.FOVangle) and distanceBetween(self.bot, enemy) > self.bot.commander.level.firingDistance + 2) or not inVOF(enemy, self.bot, self.bot.commander.level.FOVangle):
-                self.bot.changeState(AttackingSomeone(self.bot, enemy))
+        pass
+#        aliveEnemies = filter(lambda x: x.health > 0, self.bot.visibleEnemies)
+#        if (len(aliveEnemies) > 1):
+#            self.bot.changeState(AvoidSomething(self.bot, map(lambda x:x.position, aliveEnemies)))
+#        elif (len(aliveEnemies) == 1):
+#            enemy = aliveEnemies[0]
+#            if(inVOF(enemy, self.bot,  self.bot.commander.level.fieldOfViewAngles[5]) and distanceBetween(self.bot, enemy) > self.bot.commander.level.firingDistance + 2) or not inVOF(enemy, self.bot,  self.bot.commander.level.fieldOfViewAngles[5]):
+#                self.bot.changeState(AttackingSomeone(self.bot, enemy))
     
     def enter(self):
         self.bot.commander.issue(commands.Charge, self.bot, self.position)

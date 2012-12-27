@@ -3,13 +3,10 @@ import itertools
 import random
 
 import networkx as nx
-import QtGui
 
 import api
 from api.gameinfo import *
 from api import *
-
-from visualizer import VisualizerApplication
 
 class SneakingCommander(Commander):
 
@@ -70,11 +67,7 @@ class SneakingCommander(Commander):
 
         self.paths = {b: None for b in self.game.team.members}
 
-        self.visualizer = VisualizerApplication(self)
-        self.visualizer.setDrawHookPreWorld(self.drawPreWorld)
-        self.visualizer.setDrawHookPreBots(self.drawPreBots)
-        self.visualizer.setDrawHookEnd(self.drawEnd)
-        # self.visualizer.setKeyboardHook(self.keyboard)
+
 
     def getDistance(self, x, y):
         n = self.terrain[y][x]
@@ -86,9 +79,7 @@ class SneakingCommander(Commander):
 
 
     def shutdown(self):
-        self.visualizer.quit()
-        del self.visualizer
-
+        pass
 
     def makeGraph(self):
         blocks = self.level.blockHeights
@@ -186,61 +177,60 @@ class SneakingCommander(Commander):
                         self.issue(commands.Move, bot, orderPath, description = message) 
                         self.paths[bot] = path    # store the path for visualization
 
-        self.visualizer.tick()
 
-    def drawPreWorld(self, visualizer):
-        blocks = self.level.blockHeights
-        width, height = len(blocks), len(blocks[0])
-
-        furthest = max([self.distances[n] for n in itertools.chain(*self.terrain) if n])
-
-        for i, j in itertools.product(range(width), range(height)):            
-            # average weights of edges connected to this node
-            sum, count = 0, 0
-            node = self.terrain[j][i]
-            if node:
-                for offset in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    ni, nj = i + offset[0], j + offset[1]
-                    if ni < 0 or ni >= width or nj < 0 or nj >= height:
-                        continue
-                    neighbour = self.terrain[nj][ni]
-                    if neighbour:
-                        sum, count = sum + self.graph[node][neighbour]['weight'], count + 1
-            if count:
-                d = sum / count
-            else:
-                d = 32
-
-            if self.level.blockHeights[i][j] == 1:
-                visualizer.drawPixel((i, j), QtGui.qRgb(196, 196, 196))
-            elif self.level.blockHeights[i][j] >= 2:            
-                visualizer.drawPixel((i, j), QtGui.qRgb(64, 64, 64))
-            else:
-                visualizer.drawPixel((i, j), QtGui.qRgb(d,d,d))
+#    def drawPreWorld(self, visualizer):
+#        blocks = self.level.blockHeights
+#        width, height = len(blocks), len(blocks[0])
+#
+#        furthest = max([self.distances[n] for n in itertools.chain(*self.terrain) if n])
+#
+#        for i, j in itertools.product(range(width), range(height)):            
+#            # average weights of edges connected to this node
+#            sum, count = 0, 0
+#            node = self.terrain[j][i]
+#            if node:
+#                for offset in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+#                    ni, nj = i + offset[0], j + offset[1]
+#                    if ni < 0 or ni >= width or nj < 0 or nj >= height:
+#                        continue
+#                    neighbour = self.terrain[nj][ni]
+#                    if neighbour:
+#                        sum, count = sum + self.graph[node][neighbour]['weight'], count + 1
+#            if count:
+#                d = sum / count
+#            else:
+#                d = 32
+#
+#            if self.level.blockHeights[i][j] == 1:
+#                visualizer.drawPixel((i, j), QtGui.qRgb(196, 196, 196))
+#            elif self.level.blockHeights[i][j] >= 2:            
+#                visualizer.drawPixel((i, j), QtGui.qRgb(64, 64, 64))
+#            else:
+#                visualizer.drawPixel((i, j), QtGui.qRgb(d,d,d))
                 
 
-    def drawPreBots(self, visualizer):
-        for name, bot in self.game.bots.items():
-            if bot.position is None:
-                continue
-            
-            if 'Red' in name:
-                color = QtGui.qRgb(255,0,0)
-                pathColor = QtGui.qRgb(127,0,0)
-            else:
-                color = QtGui.qRgb(0,0,255)
-                pathColor = QtGui.qRgb(0,0,127)
-                
-            if bot.health <= 0.0:
-                color = QtGui.qRgb(0,0,0)
-
-            if (bot.health > 0) and (bot in self.paths) and self.paths[bot]:
-                path = self.paths[bot]
-                pLast = bot.position
-                for p in path:
-                    visualizer.drawPixel((int(p.x), int(p.y)), QtGui.qRgb(255,255,0))
-                    # visualizer.drawRay(pLast, p, color)
-                    pLast = p
+#    def drawPreBots(self, visualizer):
+#        for name, bot in self.game.bots.items():
+#            if bot.position is None:
+#                continue
+#            
+#            if 'Red' in name:
+#                color = QtGui.qRgb(255,0,0)
+#                pathColor = QtGui.qRgb(127,0,0)
+#            else:
+#                color = QtGui.qRgb(0,0,255)
+#                pathColor = QtGui.qRgb(0,0,127)
+#                
+#            if bot.health <= 0.0:
+#                color = QtGui.qRgb(0,0,0)
+#
+#            if (bot.health > 0) and (bot in self.paths) and self.paths[bot]:
+#                path = self.paths[bot]
+#                pLast = bot.position
+#                for p in path:
+#                    visualizer.drawPixel((int(p.x), int(p.y)), QtGui.qRgb(255,255,0))
+#                    # visualizer.drawRay(pLast, p, color)
+#                    pLast = p
 
     def drawEnd(self, visualizer):
         pass

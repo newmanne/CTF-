@@ -1,5 +1,6 @@
 *.py[cod]
-
+*.zip
+*.tar.gz
 # C extensions
 *.so
 

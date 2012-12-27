@@ -75,22 +75,27 @@ class Goal():
     ATTACK = 0
     DEFEND = 1
     PATROL = 2
-    def __init__(self, objective, position, isCorner, priority = 0):
+    GETFLAG = 3
+    def __init__(self, objective, position, isCorner, priority = 0, graph=None, dirs = None):
         self.objective = objective
         self.position = position
         self.isCorner = isCorner
         self.priority = priority
+        self.graph = graph
+        self.dirs = dirs
         
 class Squad():
     def __init__(self,bots, goal):
         self.bots = bots
         self.goal = goal
         if (self.goal.objective == Goal.ATTACK):
-            self.initalState = Attack(self, goal.position, goal.isCorner, goal.priority)
+            self.initalState = Attack(self, goal.position, goal.isCorner, goal.priority, goal.graph)
         elif (self.goal.objective == Goal.DEFEND):
-            self.initalState = Defend(self, goal.position, goal.isCorner, goal.priority)
-        elif (self.goal.objective == Goal.PASS):
-            pass
+            self.initalState = Defend(self, goal.position, goal.isCorner, goal.priority, goal.graph, goal.dirs)
+        elif (self.goal.objective == Goal.PATROL):
+            self.initalState = Scout(self, goal.position)            
+        elif (self.goal.objective == Goal.GETFLAG):
+            self.initalState = GetFlag(self, goal.graph)
         else:
             raise ValueError
         self.currState = None
