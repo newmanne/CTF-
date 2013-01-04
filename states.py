@@ -2,8 +2,6 @@ from api import commands
 from api import Commander
 from util import *
 
-
-
 class State(object):
     '''
     Abstract state class
@@ -22,11 +20,8 @@ class State(object):
         pass
     
 class GlobalState(State):
-    
-    #Check if you have flag
-    #Gather List Enemies/Friendlies
-    def execute(self):
-        pass
+    pass
+
     
 class DefendingSomething(State):
     
@@ -76,14 +71,7 @@ class AttackPostition(State):
             self.lookAt = lookAt
     
     def execute(self):
-        aliveEnemies = filter(lambda x: x.health > 0, self.bot.visibleEnemies)
-        if (len(aliveEnemies) > 1):
-            self.bot.changeState(AvoidSomething(self.bot, map(lambda x:x.position, aliveEnemies)))
-        elif (len(aliveEnemies) == 1):
-            enemy = aliveEnemies[0]
-            if distanceBetween(self.bot, enemy) > self.bot.commander.level.firingDistance + 2:
-                self.bot.changeState(AttackingSomeone(self.bot, enemy))
-        elif self.bot.state == 1:
+        if self.bot.state == 1:
             self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt=self.lookAt, description="Attacking Position")
    
     def enter(self):
@@ -97,57 +85,6 @@ class ChargePosition(State):
     
     def execute(self):
         pass
-#        aliveEnemies = filter(lambda x: x.health > 0, self.bot.visibleEnemies)
-#        if (len(aliveEnemies) > 1):
-#            self.bot.changeState(AvoidSomething(self.bot, map(lambda x:x.position, aliveEnemies)))
-#        elif (len(aliveEnemies) == 1):
-#            enemy = aliveEnemies[0]
-#            if(inVOF(enemy, self.bot,  self.bot.commander.level.fieldOfViewAngles[5]) and distanceBetween(self.bot, enemy) > self.bot.commander.level.firingDistance + 2) or not inVOF(enemy, self.bot,  self.bot.commander.level.fieldOfViewAngles[5]):
-#                self.bot.changeState(AttackingSomeone(self.bot, enemy))
     
     def enter(self):
         self.bot.commander.issue(commands.Charge, self.bot, self.position)
-
-class ReturningFlag(State):
-    
-    def execute(self):
-        if not self.bot.flag:
-            self.bot.weHaveFlag = False
-            self.bot.changeState(self.bot.prevState.pop())
-    
-    def enter(self):
-        self.bot.weHaveFlag = True
-        self.bot.commander.issue(commands.Charge, self.bot, self.bot.commander.game.team.flagScoreLocation, description="Returning Flag")
-
-class AttackingSomeone(State):   
-    
-    def __init__(self, bot, enemy):
-        self.bot = bot
-        self.enemy = enemy
-        
-    def execute(self):
-        if (self.enemy.health <= 0 or self.enemy not in self.bot.visibleEnemies):
-            self.bot.changeState(self.bot.prevState.pop())
-        elif not inAreaParameter(self.seenPosition, self.enemy.position, 5):
-            self.seenPosition = self.enemy.position
-            self.bot.commander.issue(commands.Attack, self.bot, self.enemy.position, lookAt=self.enemy.position, description="Attacking Bot")
-    
-    def enter(self):
-        self.seenPosition = self.enemy.position
-        self.bot.commander.issue(commands.Attack, self.bot, self.enemy.position, lookAt=self.enemy.position, description="Attacking Bot")
-
-class AvoidSomething(State):
-    
-    def __init__(self, bot, listAvoiding):
-        self.bot = bot
-        self.avoiding = listAvoiding
-    
-    def execute(self):
-        pass
-    
-    def enter(self):
-        pass  
-
-    
-    
-    

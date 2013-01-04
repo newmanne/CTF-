@@ -7,8 +7,27 @@ import random
 import networkx as nx
 from api.gameinfo import BotInfo
 
+
+class Sneaky():
+    def getNodeIndex(self, position):
+        i = int(position.x)
+        j = int(position.y)
+        width = self.graph.graph["map_width"]
+        return i+j*width
+        
+    def sneak(self, bot, position):   
+        srcIndex = self.getNodeIndex(bot.position)
+        dstIndex = self.getNodeIndex(position)
+        pathNodes = nx.shortest_path(self.graph, srcIndex, dstIndex, 'weight')
+        pathLength = len(pathNodes)
+        if pathLength > 0:
+            path = [self.bots[0].commander.positions[p] for p in pathNodes if self.bots[0].commander.positions[p]]
+            if len(path) > 0:
+                orderPath = path[::10]
+                orderPath.append(path[-1]) # take every 10th point including last point
+                self.paths[bot] = orderPath    # store the path for visualization
        
-class Attack():
+class Attack(Sneaky):
     def __init__(self, squad, position, isCorner, priority, graph):
         self.squad = squad
         self.bots = squad.bots
@@ -18,36 +37,18 @@ class Attack():
         self.graph = graph
         self.paths = {}
         
-    def getNodeIndex(self, position):
-        i = int(position.x)
-        j = int(position.y)
-        width = self.graph.graph["map_width"]
-        return i+j*width
-        
-    def sneak(self, bot):   
-        srcIndex = self.getNodeIndex(bot.position)
-        dstIndex = self.getNodeIndex(self.position)
-        pathNodes = nx.shortest_path(self.graph, srcIndex, dstIndex, 'weight')
-        pathLength = len(pathNodes)
-        if pathLength > 0:
-            path = [self.bots[0].commander.positions[p] for p in pathNodes if self.bots[0].commander.positions[p]]
-            if len(path) > 0:
-                orderPath = path[::10]
-                orderPath.append(path[-1]) # take every 10th point including last point
-                self.paths[bot] = orderPath    # store the path for visualization
-    
     def execute(self):
         
         arrived = map(lambda x: inArea(x.position, self.position), self.bots)
-        arrived = reduce(lambda x,y:x and y, arrived)
+        arrived = all(arrived)
         if arrived:
             self.squad.changeState(self.squad.prevState.pop())
             return
         idle = map(lambda x: x.state == BotInfo.STATE_IDLE, self.bots)
-        idle = reduce(lambda x,y:x and y, idle)
+        idle = all(idle)
         if(self.priority == 0 and idle):
             for bot in self.bots:
-                self.sneak(bot)
+                self.sneak(bot, self.position)
                 bot.changeState(ChargePosition(bot, self.paths[bot]))
         else:
             for bot in self.bots:
@@ -56,7 +57,7 @@ class Attack():
     def enter(self):        
         for bot in self.bots:
             if(self.priority == 0):
-                self.sneak(bot)
+                self.sneak(bot, self.position)
                 bot.changeState(ChargePosition(bot, self.paths[bot]))
             else:
                 bot.changeState(ChargePosition(bot, bot.commander.level.findNearestFreePosition(self.position)))
@@ -65,58 +66,6 @@ class Attack():
         pass
 
 class Defend():
-    #Right Side
-    VectorOne = (Vector2(0.268, 1), 1)
-    VectorTwo = (Vector2(1 , 1), 1)
-    VectorThree = (Vector2(1, 0.268), 1)
-    
-    CornerBottomLeft = [VectorOne, VectorTwo, VectorThree]
-    
-    VectorFour = (Vector2(1, -0.268), 1)
-    VectorFive = (Vector2(1, -1), 1)
-    VectorSix = (Vector2(0.268, -1), 1)
-    
-    CornerTopLeft = [VectorFour, VectorFive, VectorSix]
-    
-    VectorSeven = (Vector2(-0.268, 1), 1)
-    VectorEight = (Vector2(-1 , 1), 1)
-    VectorNine = (Vector2(-1, 0.268), 1)
-    
-    CornerBottomRight = [VectorSeven, VectorEight, VectorNine]
-    
-    VectorTen = (Vector2(-1, -0.268), 1)
-    VectorEleven = (Vector2(-1, -1), 1)
-    VectorTwelve = (Vector2(-0.268, -1), 1)
-    
-    CornerTopRight = [VectorTen, VectorEleven, VectorTwelve]
-    
-    Vectors = [VectorOne, VectorTwo, VectorThree, VectorFour, VectorFive, VectorSix, VectorSeven, VectorEight, VectorNine,VectorTen, VectorEleven, VectorTwelve] 
-    
-    up = (Vector2(0, 1), 1)
-    down = (Vector2(0, -1), 1)
-    left = (Vector2(-1, 0), 1)
-    right = (Vector2(1, 0), 1)
-    
-    
-    def assignVector(self):
-        if(self.isCorner == (0,0)):
-            return
-        elif(self.isCorner == (1,0)):
-            self.Vectors = self.CornerBottomLeft + self.CornerTopLeft
-        elif(self.isCorner == (-1,0)):
-            self.Vectors = self.CornerBottomRight + self.CornerTopRight
-        elif(self.isCorner == (0,1)):
-            self.Vectors = [(Vector2(1,1), 1),  (Vector2(-1,1), 1)]
-        elif(self.isCorner == (0,-1)):
-            self.Vectors = [(Vector2(1,-1), 1),  (Vector2(-1,-1), 1)]
-        elif(self.isCorner == (1,1)):
-            self.Vectors = self.CornerBottomLeft
-        elif(self.isCorner == (1,-1)):
-            self.Vectors = self.CornerTopLeft
-        elif(self.isCorner == (-1,1)):
-            self.Vectors = self.CornerBottomRight
-        elif(self.isCorner == (-1,-1)):
-            self.Vectors = self.CornerTopRight
         
     def __init__(self, squad,  position, isCorner,priority, graph, defDirs):
         self.position = position
@@ -195,7 +144,7 @@ class Scout():
     def exit(self):
         pass
     
-class GetFlag():
+class GetFlag(Sneaky):
     def __init__(self, squad, graph):
         self.squad = squad
         self.bots = squad.bots
@@ -203,24 +152,6 @@ class GetFlag():
         self.weHaveFlag = False
         self.graph = graph
         self.paths = {}
-        
-    def getNodeIndex(self, position):
-        i = int(position.x)
-        j = int(position.y)
-        width = self.graph.graph["map_width"]
-        return i+j*width
-        
-    def sneak(self, bot, position):   
-        srcIndex = self.getNodeIndex(bot.position)
-        dstIndex = self.getNodeIndex(position)
-        pathNodes = nx.shortest_path(self.graph, srcIndex, dstIndex, 'weight')
-        pathLength = len(pathNodes)
-        if pathLength > 0:
-            path = [self.bots[0].commander.positions[p] for p in pathNodes if self.bots[0].commander.positions[p]]
-            if len(path) > 0:
-                orderPath = path[::10]
-                orderPath.append(path[-1]) # take every 10th point including last point
-                self.paths[bot] = orderPath    # store the path for visualization
     
     def enter(self):
         for bot in self.bots:
@@ -232,7 +163,7 @@ class GetFlag():
             if bot.flag:
                 self.weHaveFlag = True
                 self.flagBearer = bot
-        if self.weHaveFlag and not reduce(lambda x,y:x or y, map(lambda x: x.flag, self.bots)):
+        if self.weHaveFlag and not any(map(lambda x: x.flag, self.bots)):
             self.weHaveFlag = False
                     
         for bot in self.bots:

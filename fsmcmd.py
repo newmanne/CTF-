@@ -39,7 +39,7 @@ class FSMCommander(Commander):
             return self.level.width - position.x < self.edgeDistance or position.x < self.edgeDistance
         else:
             return self.level.height - position.y < self.edgeDistance or position.y < self.edgeDistance
-        
+    
 
 
     def getStrategicPostion(self, position):
@@ -142,8 +142,9 @@ class FSMCommander(Commander):
             else:
                 self.scouts.append(bot)
                 
+        #TODO: priority decided based on distance
         self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=1, graph=self.graph, dirs=teamDirs))
-        self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, graph=self.graph, dirs=self.game.enemyTeam.flagScoreLocation - enemyPosition))
+        self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, graph=self.graph, dirs=[self.game.enemyTeam.flagScoreLocation - enemyPosition]))
         self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
         self.scoutsGroup = Squad(self.scouts, Goal(Goal.PATROL, self.scoutPositions, None))
         self.squads = [self.defendingGroup, self.attackingGroup,self.flagGroup, self.scoutsGroup]

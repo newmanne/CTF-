@@ -41,8 +41,6 @@ class Bot():
     def update(self):
         if not self.currState and self.health >0:
             self.currState = self.initalState
-            if self.defendingGroup:
-                self.defendingGroup.reAssignRoles()
             self.currState.enter()
         elif self.health >0:            
             self.globalState.execute()
