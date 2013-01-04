@@ -99,8 +99,12 @@ class Squad():
         self.currState = None
         self.prevState = []
         
+    def updateGraph(self, graph):
+        if self.currState:
+            self.currState.graph = graph
+    
     def update(self):
-        if self.currState == None:
+        if not self.currState:
             self.currState = self.initalState
             self.currState.enter()
         else:

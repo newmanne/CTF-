@@ -28,13 +28,67 @@ class FSMCommander(Commander):
     numOfFlagGetters = 2
     edgeDistance = 10
     
+    def reassignScouts(self):
+        pass
+    
+    def getVisibleEnemies(self):
+        enemies = set()
+        for bot in self.game.bots_alive:
+            enemies.union(set(bot.visibleEnemies))
+        return enemies
+    
+    def inZone(self, position):
+        if position.x < 0 or position.x > self.level.width -1:
+            return False
+        if position.y < 0 or position.y > self.level.height -1:
+            return False
+        return True        
+    
+    def updateGraph(self):
+        self.graph = self.originalGraph
+        enemies = self.getVisibleEnemies()
+        nodes = map(lambda x: x.position, enemies)
+        G = self.graph
+        weightAdded = 100
+        for node in nodes:            
+            for i in range(5):
+                if self.inZone(node + Vector2(i, i)):
+                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y+i]):
+                        # we added this one before, just increase the weight by one
+                        G[self.terrain[node.x][node.y]][self.terrain[node.x+i][node.y+i]]['weight'] += weightAdded/i
+                    else:
+                        # new edge. add with weight=1
+                        G.add_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y+i], weight=weightAdded/i)
+                if self.inZone(node + Vector2(i, -i)):  
+                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y-i]):
+                        # we added this one before, just increase the weight by one
+                        G[self.terrain[node.x][node.y]][self.terrain[node.x+i][node.y-i]]['weight'] += weightAdded/i
+                    else:
+                        # new edge. add with weight=1
+                        G.add_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y-i], weight=weightAdded/i)
+                if self.inZone(node + Vector2(-i, i)):
+                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x-i][node.y+i]):
+                        # we added this one before, just increase the weight by one
+                        G[self.terrain[node.x][node.y]][self.terrain[node.x-i][node.y+i]]['weight'] += weightAdded/i
+                    else:
+                        # new edge. add with weight=1
+                        G.add_edge(self.terrain[node.x][node.y], self.terrain[node.x-i][node.y+i], weight=weightAdded/i)
+                if self.inZone(node + Vector2(-i, -i)):
+                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x-i][node.y-i]):
+                        # we added this one before, just increase the weight by one
+                        G[self.terrain[node.x][node.y]][self.terrain[node.x-i][node.y-i]]['weight'] += weightAdded/i
+                    else:
+                        # new edge. add with weight=1
+                        G.add_edge(self.terrain[node.x][node.y], self.terrain[node.x-i][node.y-i], weight=weightAdded/i)
+            
+    
     def tick(self):
-      
-        bots = list(self.bots)
+        self.updateGraph()
         for squad in self.squads:
+            if not [bot for bot in squad.bots if bot.health >0] and squad == self.squads[0]:
+                self.reassignScouts()
+            squad.updateGraph(self.graph)
             squad.update()
-        for bot in bots:
-            bot.update()
             
     def isNearEdge(self, xory, position):
         if xory==0:
@@ -82,24 +136,15 @@ class FSMCommander(Commander):
         
         
     def getDefendingDirs(self, position):
-        VectorOne = Vector2(0.268, 1)
-        VectorTwo = Vector2(1 , 1)
-        VectorThree = Vector2(1, 0.268) 
-        VectorFour = Vector2(1, -0.268)
-        VectorFive = Vector2(1, -1)
-        VectorSix = Vector2(0.268, -1)
-        VectorSeven = Vector2(-0.268, 1)
-        VectorEight = Vector2(-1 , 1)
-        VectorNine = Vector2(-1, 0.268)       
-        VectorTen = Vector2(-1, -0.268)
-        VectorEleven = Vector2(-1, -1)
-        VectorTwelve = Vector2(-0.268, -1)
-        Vectors = [VectorOne, VectorTwo, VectorThree, VectorFour, VectorFive, VectorSix, VectorSeven, VectorEight, VectorNine,VectorTen, VectorEleven, VectorTwelve]
+        VectorOne = Vector2(0, 1)
+        VectorTwo = Vector2(1 , 0)
+        VectorThree = Vector2(-1, 0) 
+        VectorFour = Vector2(0, -1)
+        Vectors = [VectorOne, VectorTwo, VectorThree, VectorFour]
         ToFace = []
         for i in Vectors:
             if canSee(position, position + 7*i, self.level.width, self.level.height,lambda x, y: self.level.blockHeights[x][y] > 1):
                 ToFace.append((i, 1))
-        print ToFace
         return ToFace
         
     def getScoutingPositions(self):
@@ -210,6 +255,7 @@ class FSMCommander(Commander):
         self.updateEdgeWeights()
 
         self.paths = {b: None for b in self.game.team.members}
+        self.originalGraph = self.graph
     
     def getDistance(self, x, y):
         n = self.terrain[y][x]

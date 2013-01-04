@@ -8,6 +8,7 @@ import networkx as nx
 from api.gameinfo import BotInfo
 
 
+
 class Sneaky():
     def getNodeIndex(self, position):
         i = int(position.x)
@@ -18,14 +19,17 @@ class Sneaky():
     def sneak(self, bot, position):   
         srcIndex = self.getNodeIndex(bot.position)
         dstIndex = self.getNodeIndex(position)
-        pathNodes = nx.shortest_path(self.graph, srcIndex, dstIndex, 'weight')
-        pathLength = len(pathNodes)
-        if pathLength > 0:
-            path = [self.bots[0].commander.positions[p] for p in pathNodes if self.bots[0].commander.positions[p]]
-            if len(path) > 0:
-                orderPath = path[::10]
-                orderPath.append(path[-1]) # take every 10th point including last point
-                self.paths[bot] = orderPath    # store the path for visualization
+        try:
+            pathNodes = nx.shortest_path(self.graph, srcIndex, dstIndex, 'weight')
+            pathLength = len(pathNodes)
+            if pathLength > 0:
+                path = [self.bots[0].commander.positions[p] for p in pathNodes if self.bots[0].commander.positions[p]]
+                if len(path) > 0:
+                    orderPath = path[::10]
+                    orderPath.append(path[-1]) # take every 10th point including last point
+                    self.paths[bot] = orderPath    # store the path for visualization
+        except:
+            self.paths[bot] = position
        
 class Attack(Sneaky):
     def __init__(self, squad, position, isCorner, priority, graph):
@@ -86,7 +90,6 @@ class Defend():
             if self.Vectors:
                 splitVectors = list(chunks(self.Vectors, min(len(defenders), len(self.Vectors))))
                 for i, bot in enumerate(defenders):
-                    print "assigning", bot.name, splitVectors[(i+1)%len(splitVectors)]
                     bot.defending_direction = splitVectors[(i+1)%len(splitVectors)]
         else:
             for bot in defenders:
@@ -113,7 +116,6 @@ class Defend():
     def enter(self):
         for defender in self.defenders:
             if not inArea(defender.position, self.position):
-                print "Attack before Defend"
                 self.squad.changeState(Attack(self.squad, self.position, self.isCorner, self.priority, self.graph))
                 return
         
@@ -169,6 +171,7 @@ class GetFlag(Sneaky):
         for bot in self.bots:
             if bot.state == BotInfo.STATE_IDLE:
                 if self.weHaveFlag:
+                    if bot.flag:
                         self.sneak(bot, bot.commander.game.team.flagScoreLocation)
                         bot.changeState(ChargePosition(bot, self.paths[bot]))
                 else:
