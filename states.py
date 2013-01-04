@@ -1,7 +1,9 @@
-from api import commands
+from api import commands, vector2
 from api import Commander
 from util import *
+
 from api.gameinfo import BotInfo
+
 
 class State(object):
     '''
@@ -33,9 +35,8 @@ class DefendingSomething(State):
         self.counter = 0
         self.at = False
         if self.bot.defending_direction:
-            self.dirToWalkIn = map(lambda x: x[0], self.bot.defending_direction)
-            
-        
+            self.dirToWalkIn = map(lambda x: x if isinstance(x, vector2.Vector2) else x[0], self.bot.defending_direction)
+
     def execute(self):
         aliveEnemies = [enemy for enemy in self.bot.visibleEnemies if enemy.health > 0]
         if aliveEnemies:
@@ -44,17 +45,17 @@ class DefendingSomething(State):
         if self.dirToWalkIn:
             if not self.at and self.bot.state == BotInfo.STATE_IDLE:
                 self.at = True
-                self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt = self.dirToWalkIn[(counter+1)%len(self.dirToWalkIn)], description="Defending Position")
+                self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt = self.dirToWalkIn[(self.counter+1)%len(self.dirToWalkIn)], description="Defending Position")
             if self.at and self.bot.state == BotInfo.STATE_IDLE:
                 self.at = False
                 self.counter += 1
-                self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt = self.dirToWalkIn[(counter+1)%len(self.dirToWalkIn)], description="Defending Position")
+                self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt = self.dirToWalkIn[(self.counter+1)%len(self.dirToWalkIn)], description="Defending Position")
         if self.bot.defenceTrigger == 1:
             self.counter = 0
             self.at = False
             self.bot.defenceTrigger = 0
             if self.bot.defending_direction:
-                self.dirToWalkIn = map(lambda x: x[0], self.bot.defending_direction)
+                self.dirToWalkIn = map(lambda x: x if isinstance(x, vector2.Vector2) else x[0], self.bot.defending_direction)
             if self.dirToWalkIn:
                 self.bot.commander.issue(commands.Attack, self.bot, self.position + self.dirToWalkIn[0], lookAt = self.dirToWalkIn[0], description="Defending Position")
             else:

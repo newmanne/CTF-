@@ -10,13 +10,14 @@ import random
 import numpy
 import scipy
 
-
 import networkx as nx
 # The maps for CTF are layed out along the X and Z axis in space, but can be
 # effectively be considered 2D.
 from bot import Bot, DefendingGroup, Squad, Goal
 from states import  *
+
 from util import distance
+
 from visibility import *
 import sys
 
@@ -144,9 +145,9 @@ class FSMCommander(Commander):
                 self.scouts.append(bot)
                 
         #TODO: priority decided based on distance
-        teamPriority = 1 if distance(self.game.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
+        teamPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
         self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=teamPriority, graph=self.graph, dirs=teamDirs))
-        enemyPriority = 1 if distance(self.game.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
+        enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
         self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[self.game.enemyTeam.flagScoreLocation - enemyPosition]))
         self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
         self.scoutsGroup = Squad(self.scouts, Goal(Goal.PATROL, self.scoutPositions, None))
