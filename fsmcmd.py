@@ -176,7 +176,7 @@ class FSMCommander(Commander):
             bot = Bot(bot_info, self)
             if i < self.numOfDefenders:                
                 self.defenders.append(bot)
-            elif self.numOfDefenders < i < self.numOfFlagGetters + self.numOfDefenders:
+            elif self.numOfDefenders <= i < self.numOfFlagGetters + self.numOfDefenders:
                 self.flagGetters.append(bot)
             elif i %2 == 0:
                 self.attackers.append(bot)
