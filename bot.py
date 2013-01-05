@@ -103,6 +103,23 @@ class Squad():
         if self.currState:
             self.currState.graph = graph
     
+    def removeBot(self, bot):
+        if bot in self.bots:
+            self.bots.remove(bot)
+            if bot in self.currState.bots:
+                self.currState.bots.remove(bot)
+            
+    def addBot(self, bot):
+        if bot not in self.bots:
+            self.bots.append(bot)
+            self.currState.bots.append(bot)
+    
+    def getRandomBot(self):
+        if self.bots:
+            return random.choice(self.bots)
+        else:
+            return None
+    
     def update(self):
         if not self.currState:
             self.currState = self.initalState
