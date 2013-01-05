@@ -5,8 +5,7 @@ from states import *
 import random
 
 import networkx as nx
-from api.gameinfo import BotInfo
-
+from api.gameinfo import BotInfo, MatchCombatEvent
 
 class Sneaky():
     def getNodeIndex(self, position):
@@ -102,9 +101,12 @@ class Defend():
         
     def updateDefendingDirections(self, aliveDefenders):
         if len(aliveDefenders) < self.numAliveDefenders:
-            for deadDefender in self.getDeadDefenders():
-                for enemy in deadDefender.visibleEnemies:
-                    self.Vectors.add((enemy.position - deadDefender.position, 1))
+            events = self.squad.commander.game.match.combatEvents
+            killingEvents = (event for event in events for deadDefender in self.getDeadDefenders() if event.subject == deadDefender.bot_info and event.type == MatchCombatEvent.TYPE_KILLED)
+            for killingEvent in killingEvents:
+                newVector = killingEvent.instigator.position - killingEvent.subject.position
+                if all(areUniqueAngles(newVector, b[0], 15) for b in self.Vectors):
+                    self.Vectors.add((newVector, 1))
     
     def execute(self):
         for defender in self.bots:

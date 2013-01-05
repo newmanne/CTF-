@@ -34,3 +34,7 @@ def chunks(seq, size):
     for i in range(size):
             newseq.append(seq[int(round(i*splitsize)):int(round((i+1)*splitsize))])
     return newseq
+
+def areUniqueAngles(a, b, closeness=15):
+    """Given 2 vector2s, do they differ by more than closeness degrees?"""
+    return False if math.degrees(math.acos(a.normalized().dotProduct(b.normalized()))) < closeness else True

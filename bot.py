@@ -77,9 +77,10 @@ class Goal():
         self.dirs = dirs
         
 class Squad():
-    def __init__(self,bots, goal):
+    def __init__(self,bots, goal, commander=None):
         self.bots = bots
         self.goal = goal
+        self.commander = commander
         if (self.goal.objective == Goal.ATTACK):
             self.initalState = Attack(self, goal.position, goal.isCorner, goal.priority, goal.graph)
         elif (self.goal.objective == Goal.DEFEND):
