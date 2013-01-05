@@ -36,13 +36,13 @@ class Greedy():
                     self.commander.issue(commands.Charge, bot, target, description = 'scrambling home')
                 # 2) Run to the exact flag location, effectively escorting the carrier.
                 else:
-                    self.commander.issue(commands.Attack, bot, self.game.enemyTeam.flag.position, description = 'defending flag carrier',
+                    self.commander.issue(commands.Attack, bot, self.commander.game.enemyTeam.flag.position, description = 'defending flag carrier',
                                lookAt = random.choice([their_flag, our_flag, their_flag, their_base]))
 
             # In this case, the flag has not been captured yet so have this bot attack it!
             else:
                 path = [self.commander.game.enemyTeam.flag.position]
-                if contains(self.level.botSpawnAreas[self.commander.game.team.name], bot.position) and random.choice([True, False]):
+                if contains(self.commander.level.botSpawnAreas[self.commander.game.team.name], bot.position) and random.choice([True, False]):
                     path.insert(0, self.commander.game.team.flagScoreLocation)
                 self.commander.issue(commands.Attack, bot, path, description = 'attacking enemy flag',
                                 lookAt = random.choice([their_flag, our_flag, their_flag, their_base]))
@@ -53,7 +53,7 @@ class Greedy():
             if holding > 1:
                 self.commander.issue(commands.Charge, bot, random.choice([b.position for b in bot.visibleEnemies]))
             else:
-                target = self.level.findRandomFreePositionInBox((bot.position-5.0, bot.position+5.0))
+                target = self.commander.level.findRandomFreePositionInBox((bot.position-5.0, bot.position+5.0))
                 self.commander.issue(commands.Attack, bot, target, lookAt = random.choice([b.position for b in bot.visibleEnemies]))
 
         

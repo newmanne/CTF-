@@ -157,7 +157,8 @@ class FSMCommander(Commander):
             self.scoutPositions.append(self.level.findNearestFreePosition(Vector2(i/(self.level.width-20), i%self.level.height)))
     
     def initialize(self):
-        if self.game.bots_alive > 10:
+        self.greed = False
+        if len(self.game.bots_available) > 10:
             self.squads = [Squad(self.game.bots_alive, Goal(Goal.GREED), self)]
             self.greed = True
             return
@@ -188,7 +189,6 @@ class FSMCommander(Commander):
             else:
                 self.scouts.append(bot)
                 
-        #TODO: priority decided based on distance
         teamPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
         self.defendingGroup = Squad(self.bots, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=teamPriority, graph=self.graph, dirs=teamDirs))
         enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
