@@ -163,10 +163,8 @@ class GetFlag(Sneaky):
     def execute(self):
         for bot in self.bots:
             if bot.flag:
-                self.weHaveFlag = True
                 self.flagBearer = bot
-        if self.weHaveFlag and not any(map(lambda x: x.flag, self.bots)):
-            self.weHaveFlag = False
+        self.weHaveFlag = any(map(lambda x: x.flag, self.bots))
                     
         for bot in self.bots:
             if bot.state == BotInfo.STATE_IDLE:
