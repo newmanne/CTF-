@@ -20,6 +20,7 @@ from states import  *
 from util import distance
 
 from visibility import *
+from graph import setupGraphs
 import sys
 
 
@@ -157,7 +158,7 @@ class FSMCommander(Commander):
         
     
     def initialize(self):
-        self.setupGraps()
+        setupGraphs(self) # inits self.graph
         self.getScoutingPositions()
         self.verbose = True
         self.bots = set()
@@ -190,137 +191,3 @@ class FSMCommander(Commander):
         self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
         self.scoutsGroup = Squad(self.scouts, Goal(Goal.PATROL, self.scoutPositions, None))
         self.squads = [self.defendingGroup, self.attackingGroup,self.flagGroup, self.scoutsGroup]
-        
-        
-    def setupGraps(self):
-        self.makeGraph()
-        
-        self.graph.add_node("enemy_base")
-        self.positions["enemy_base"] = None
-        start, finish = self.level.botSpawnAreas[self.game.enemyTeam.name]
-        for i, j in itertools.product(range(int(start.x), int(finish.x)), range(int(start.y), int(finish.y))):
-            self.graph.add_edge("enemy_base", self.terrain[j][i], weight = 1.0)
-
-        self.graph.add_node("base")
-        self.positions["base"] = None
-        start, finish = self.level.botSpawnAreas[self.game.team.name]
-        for i, j in itertools.product(range(int(start.x), int(finish.x)), range(int(start.y), int(finish.y))):
-            self.graph.add_edge("base", self.terrain[j][i], weight = 1.0)
-
-        self.node_EnemyFlagIndex = self.getNodeIndex(self.game.team.flag.position)
-        self.node_EnemyScoreIndex = self.getNodeIndex(self.game.enemyTeam.flagScoreLocation)
-
-        # self.node_Bases = self.graph.add_vertex()
-        # e = self.graph.add_edge(self.node_Bases, self.node_MyBase)
-        # e = self.graph.add_edge(self.node_Bases, self.node_EnemyBase)
-
-        vb2f = nx.shortest_path(self.graph, source="enemy_base", target=self.node_EnemyFlagIndex)
-        vf2s = nx.shortest_path(self.graph, source=self.node_EnemyFlagIndex, target=self.node_EnemyScoreIndex)
-        #vb2s = nx.shortest_path(self.graph, source="enemy_base", target=self.node_EnemyScoreIndex)
-
-        self.node_EnemyBaseToFlagIndex = "enemy_base_to_flag"
-        self.graph.add_node(self.node_EnemyBaseToFlagIndex)
-        self.positions["enemy_base_to_flag"] = None
-        for vertex in vb2f:
-            self.graph.add_edge(self.node_EnemyBaseToFlagIndex, vertex, weight = 1.0)
-        
-        self.node_EnemyFlagToScoreIndex = "enemy_flag_to_score" 
-        self.graph.add_node(self.node_EnemyFlagToScoreIndex)
-        self.positions["enemy_flag_to_score"] = None
-        for vertex in vf2s:
-            self.graph.add_edge(self.node_EnemyFlagToScoreIndex, vertex, weight = 1.0)
-        
-        self.node_EnemyBaseToScoreIndex = "enemy_base_to_score"
-        self.graph.add_node(self.node_EnemyBaseToScoreIndex)
-        self.positions["enemy_base_to_score"] = None
-       # for vertex in vb2s:
-       #     self.graph.add_edge(self.node_EnemyBaseToScoreIndex, vertex, weight = 1.0)
-
-        ## node = self.makeNode(self.game.enemyTeam.flag.position)
-        self.distances = nx.single_source_shortest_path_length(self.graph, self.node_EnemyFlagToScoreIndex)
-
-        self.graph.remove_node("base")
-        self.graph.remove_node("enemy_base")
-        self.graph.remove_node(self.node_EnemyBaseToFlagIndex)
-        self.graph.remove_node(self.node_EnemyFlagToScoreIndex)
-        self.graph.remove_node(self.node_EnemyBaseToScoreIndex)
-
-        self.updateEdgeWeights()
-
-        self.paths = {b: None for b in self.game.team.members}
-        self.originalGraph = self.graph
-    
-    def getDistance(self, x, y):
-        n = self.terrain[y][x]
-        if n:
-            return self.distances[n]
-        else:
-            return 0.0
-    def makeGraph(self):
-        blocks = self.level.blockHeights
-        width, height = len(blocks), len(blocks[0])
-
-        g = nx.Graph(directed=False, map_height = height, map_width = width)
-        #self.positions = g.new_vertex_property('vector<float>')
-        #self.weights = g.new_edge_property('float')
-    
-        #g.vertex_properties['pos'] = self.positions
-        #g.edge_properties['weight'] = self.weights
-    
-        self.terrain = []
-        self.positions = {}
-        for j in range(0, height):
-            row = []
-            for i in range(0,width):
-                if blocks[i][j] == 0:
-                    g.add_node(i+j*width, position = (float(i)+0.5, float(j)+0.5) )
-                    self.positions[i+j*width] = Vector2(float(i) + 0.5, float(j) + 0.5)
-                    row.append(i+j*width)
-                else:
-                    row.append(None)
-            self.terrain.append(row)
-        
-        for i, j in itertools.product(range(0, width), range(0, height)):
-            p = self.terrain[j][i]
-            if not p: continue
-    
-            if i < width-1:
-                q = self.terrain[j][i+1]
-                if q:
-                    e = g.add_edge(p, q, weight = 1.0)
-    
-            if j < height-1:
-                r = self.terrain[j+1][i]
-                if r:
-                    e = g.add_edge(p, r, weight = 1.0)
-    
-        self.graph = g
-
-    def getNodeIndex(self, position):
-        i = int(position.x)
-        j = int(position.y)
-        width = self.graph.graph["map_width"]
-        return i+j*width
-
-
-    def updateEdgeWeights(self):
-        blocks = self.level.blockHeights
-        width, height = len(blocks), len(blocks[0])
-
-        # update the weights in the graph based on the distance to the shortest path between the enemy flag and enemy score location
-
-        for j in range(0, height):
-            for i in range(0, width -1):
-                a = self.terrain[j][i]
-                b = self.terrain[j][i+1]
-                if a and b:
-                    w = max(255 - 4*(self.distances[a] + self.distances[b]), 0)
-                    self.graph[a][b]['weight'] = w
-
-        for j in range(0, height-1):
-            for i in range(0, width):
-                a = self.terrain[j][i]
-                b = self.terrain[j+1][i]
-                if a and b:
-                    w = max(255 - 4*(self.distances[a] + self.distances[b]), 0)
-                    self.graph[a][b]['weight'] = w
