@@ -120,11 +120,7 @@ class FSMCommander(Commander):
         
         
     def getDefendingDirs(self, position):
-        VectorOne = Vector2(0, 1)
-        VectorTwo = Vector2(1 , 0)
-        VectorThree = Vector2(-1, 0) 
-        VectorFour = Vector2(0, -1)
-        Vectors = [VectorOne, VectorTwo, VectorThree, VectorFour]
+        Vectors = [Vector2(0, 1), Vector2(1 , 0), Vector2(-1, 0), Vector2(0, -1)]
         ToFace = []
         for i in Vectors:
             if canSee(position, position + 7*i, self.level.width, self.level.height,lambda x, y: self.level.blockHeights[x][y] > 1):
