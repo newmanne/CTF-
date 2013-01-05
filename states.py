@@ -42,8 +42,7 @@ class DefendingSomething(State):
             self.bot.commander.issue(commands.Defend, self.bot, facingDirection =self.bot.defending_direction, description="Defending Position")
             
     def enter(self):
-        if inArea(self.bot.position, self.position):
-            self.bot.commander.issue(commands.Defend, self.bot, facingDirection = self.bot.defending_direction, description="Defending Position")
+        self.bot.commander.issue(commands.Defend, self.bot, facingDirection = self.bot.defending_direction, description="Defending Position")
 
 class DefendingAgainst(State):
     

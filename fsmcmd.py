@@ -38,7 +38,7 @@ class FSMCommander(Commander):
                 group.addBot(bot)
                 
     def unassignScouts(self, group, number):
-        for _ in range(len(group) -number):
+        for _ in range(len(group.bots) - number):
             bot = self.group.getRandomBot()
             if bot:
                 self.scoutsGroup.addBot(bot)
