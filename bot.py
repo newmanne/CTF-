@@ -5,12 +5,6 @@ import random
 from api import Commander
 from squadstates import *
 
-def enum(*sequential, **named):
-    enums = dict(zip(sequential, range(len(sequential))), **named)
-    reverse = dict((value, key) for key, value in enums.iteritems())
-    enums['reverse_mapping'] = reverse
-    return type('Enum', (), enums)
-
 class Bot():
     ROLE_MOVING = 1
     ROLE_DEFENDING = 2
