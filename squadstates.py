@@ -170,6 +170,10 @@ class GetFlag(Sneaky):
                     if bot.flag:
                         self.sneak(bot, bot.commander.game.team.flagScoreLocation)
                         bot.changeState(ChargePosition(bot, self.paths[bot]))
+                    else:
+                        if bot.state != BotInfo.STATE_TAKINGORDERS:
+                            self.sneak(bot, bot.commander.game.enemyTeam.flagSpawnLocation)
+                            bot.changeState(ChargePosition(bot, self.paths[bot]))
                 else:
                     self.sneak(bot, bot.commander.game.enemyTeam.flag.position)
                     bot.changeState(ChargePosition(bot, self.paths[bot]))
