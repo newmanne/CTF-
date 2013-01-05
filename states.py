@@ -31,42 +31,19 @@ class DefendingSomething(State):
     def __init__(self, bot, position, priority =0):
         self.bot = bot
         self.position = position
-        self.priority = priority
-        self.counter = 0
-        self.atTempPosition = False
-        if self.bot.defending_direction:
-            self.dirToWalkIn = map(lambda x: x if isinstance(x, vector2.Vector2) else x[0], self.bot.defending_direction)
-
+        
     def execute(self):
         aliveEnemies = [enemy for enemy in self.bot.visibleEnemies if enemy.health > 0]
         if aliveEnemies:
-            if any(map(lambda x: inVOF(self.bot, x, self.bot.commander.level.fieldOfViewAngles[2]),  aliveEnemies)):
+            if any(map(lambda x: inVOF(self.bot, x, self.bot.commander.level.fieldOfViewAngles[2]), aliveEnemies)):
                 self.bot.changeState(DefendingAgainst(self.bot, self.bot.getClosestEnemy()))
-        if self.dirToWalkIn:
-            if not self.atTempPosition and self.bot.state == BotInfo.STATE_IDLE:
-                self.atTempPosition = True
-                self.bot.commander.issue(commands.Attack, self.bot, self.position , lookAt = self.position + self.dirToWalkIn[(self.counter+1)%len(self.dirToWalkIn)], description="Defending Position")
-            if self.atTempPosition and self.bot.state == BotInfo.STATE_IDLE:
-                self.atTempPosition = False
-                self.counter += 1
-                self.bot.commander.issue(commands.Attack, self.bot, self.position + self.dirToWalkIn[(self.counter+1)%len(self.dirToWalkIn)], lookAt =  self.position + self.dirToWalkIn[(self.counter+1)%len(self.dirToWalkIn)], description="Defending Position")
         if self.bot.defenceTrigger == 1:
-            self.counter = 0
-            self.atTempPosition = False
             self.bot.defenceTrigger = 0
-            if self.bot.defending_direction:
-                self.dirToWalkIn = map(lambda x: x if isinstance(x, vector2.Vector2) else x[0], self.bot.defending_direction)
-            if self.dirToWalkIn:
-                self.bot.commander.issue(commands.Attack, self.bot, self.position + self.dirToWalkIn[0], lookAt =  self.position + self.dirToWalkIn[0], description="Defending Position")
-            else:
-                self.bot.commander.issue(commands.Defend, self.bot, facingDirection =self.bot.defending_direction, description="Defending Position")
+            self.bot.commander.issue(commands.Defend, self.bot, facingDirection =self.bot.defending_direction, description="Defending Position")
             
     def enter(self):
         if inArea(self.bot.position, self.position):
-            if self.dirToWalkIn:
-                self.bot.commander.issue(commands.Attack, self.bot, self.position + self.dirToWalkIn[0], lookAt =  self.position + self.dirToWalkIn[0], description="Defending Position")
-            else:
-                self.bot.commander.issue(commands.Defend, self.bot, facingDirection =self.bot.defending_direction, description="Defending Position")
+            self.bot.commander.issue(commands.Defend, self.bot, facingDirection = self.bot.defending_direction, description="Defending Position")
 
 class DefendingAgainst(State):
     

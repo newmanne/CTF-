@@ -30,14 +30,14 @@ class FSMCommander(Commander):
     edgeDistance = 10
     
     def reassignScouts(self, group, number):
-        for i in range(number):
+        for _ in range(number):
             bot = self.scoutsGroup.getRandomBot()
             if bot:
                 self.scoutsGroup.removeBot(bot)
                 group.addBot(bot)
                 
     def unassignScouts(self, group, number):
-        for i in range(len(group) -number):
+        for _ in range(len(group) -number):
             bot = self.group.getRandomBot()
             if bot:
                 self.scoutsGroup.addBot(bot)
@@ -173,11 +173,11 @@ class FSMCommander(Commander):
         enemyDirs = self.getDefendingDirs(enemyPosition)
         for i, bot_info in enumerate(self.game.bots_available):
             bot = Bot(bot_info, self)
-            if len(self.defenders) < self.numOfDefenders:                
+            if i < self.numOfDefenders:                
                 self.defenders.append(bot)
-            elif len(self.flagGetters) < self.numOfFlagGetters:
+            elif self.numOfDefenders < i < self.numOfFlagGetters + self.numOfDefenders:
                 self.flagGetters.append(bot)
-            elif len(self.attackers) < self.numOfAttackers:
+            elif i %2 == 0:
                 self.attackers.append(bot)
             else:
                 self.scouts.append(bot)
