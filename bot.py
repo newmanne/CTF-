@@ -5,12 +5,6 @@ import random
 from api import Commander
 from squadstates import *
 
-def enum(*sequential, **named):
-    enums = dict(zip(sequential, range(len(sequential))), **named)
-    reverse = dict((value, key) for key, value in enums.iteritems())
-    enums['reverse_mapping'] = reverse
-    return type('Enum', (), enums)
-
 class Bot():
     ROLE_MOVING = 1
     ROLE_DEFENDING = 2
@@ -39,14 +33,14 @@ class Bot():
         return min(aliveEnemies, key=lambda enemy: distanceBetween(enemy, self.bot_info))
     
     def update(self):
-        if not self.currState and self.health >0:
+        if not self.currState and self.health > 0:
             self.currState = self.initalState
             self.currState.enter()
-        elif self.health >0:            
+        elif self.health > 0:            
             self.globalState.execute()
             if self.currState:
                 self.currState.execute()
-        elif self.health <=0:
+        elif self.health <= 0:
             self.currState = None
             self.prevState = []
     
