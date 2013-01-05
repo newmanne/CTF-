@@ -107,6 +107,7 @@ class Squad():
         if bot not in self.bots:
             self.bots.append(bot)
             self.currState.bots.append(bot)
+            
     
     def getRandomBot(self):
         if self.bots:

@@ -8,7 +8,6 @@ import networkx as nx
 from api.gameinfo import BotInfo
 
 
-
 class Sneaky():
     def getNodeIndex(self, position):
         i = int(position.x)
@@ -55,7 +54,7 @@ class Attack(Sneaky):
         else:
             for bot in self.bots:
                 bot.update()
-        
+
     def enter(self):        
         for bot in self.bots:
             if self.priority == 0:
@@ -109,8 +108,8 @@ class Defend():
             self.numAliveDefenders = len(aliveDefenders)
             self.reAssignRoles()
         for defender in self.bots:
-            defender.update()      
-    
+            defender.update()
+        
     def enter(self):
         for defender in self.bots:
             if not inArea(defender.position, self.position):
@@ -129,15 +128,18 @@ class Scout():
         self.bots = squad.bots
         self.positions = positions
         self.numAlive = len(self.bots)
+        self.currentlyScouting = random.choice(self.positions)
     
     def enter(self):
         for bot in self.bots:
-            bot.changeState(AttackPostition(bot, random.choice(self.positions)))
+            bot.changeState(AttackPostition(bot, self.currentlyScouting))
     
     def execute(self):
+        idle = all(map(lambda x: inArea(x.position, self.currentlyScouting), self.bots))
         for bot in self.bots:
-            if (bot.state == BotInfo.STATE_IDLE):
-                bot.changeState(AttackPostition(bot, random.choice(self.positions)))
+            if idle:
+                self.currentlyScouting = random.choice(self.positions)
+                bot.changeState(AttackPostition(bot, self.currentlyScouting))
             else:
                 bot.update()
                 

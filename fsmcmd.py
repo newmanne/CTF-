@@ -71,10 +71,6 @@ class FSMCommander(Commander):
     def tick(self):
         self.updateGraph()
         for squad in self.squads:
-            if squad == self.defendingGroup and not [bot for bot in squad.bots if bot.health >0] :
-                self.reassign(self.defendingGroup, self.scoutsGroup, self.numOfDefenders)
-            if squad == self.defendingGroup and  len(squad.bots) > self.numOfDefenders:
-                self.reassign(self.scoutsGroup, self.defendingGroup, len(squad.bots)-self.numOfDefenders)
             squad.updateGraph(self.graph)
             squad.update()
             
