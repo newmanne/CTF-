@@ -50,7 +50,7 @@ class Attack(Sneaky):
             return
         idle = map(lambda x: x.state == BotInfo.STATE_IDLE, self.bots)
         idle = all(idle)
-        if(self.priority == 0 and idle):
+        if self.priority == 0 and idle:
             for bot in self.bots:
                 self.sneak(bot, self.position)
                 bot.changeState(ChargePosition(bot, self.paths[bot]))
@@ -60,7 +60,7 @@ class Attack(Sneaky):
         
     def enter(self):        
         for bot in self.bots:
-            if(self.priority == 0):
+            if self.priority == 0:
                 self.sneak(bot, self.position)
                 bot.changeState(ChargePosition(bot, self.paths[bot]))
             else:
