@@ -73,7 +73,7 @@ class Defend():
         self.isCorner = isCorner
         self.bots = squad.bots
         self.squad = squad
-        self.Vectors = defDirs
+        self.Vectors = set(defDirs)
         self.assignDefenders(squad.bots)
         self.numAliveDefenders = len(squad.bots)
         self.priority = priority
@@ -83,21 +83,29 @@ class Defend():
     def assignDefenders(self, defenders):
         if not defenders:
             return
-        if isinstance(self.Vectors, list):
-            if self.Vectors:
-                splitVectors = list(chunks(self.Vectors, min(len(defenders), len(self.Vectors))))
-                for i, bot in enumerate(defenders):
-                    bot.defending_direction = splitVectors[(i+1)%len(splitVectors)]
-        else:
-            for bot in defenders:
-                bot.defending_direction = self.Vectors
+        if self.Vectors:
+            splitVectors = list(chunks(list(self.Vectors), min(len(defenders), len(self.Vectors))))
+            for i, bot in enumerate(defenders):
+                bot.defending_direction = splitVectors[(i+1)%len(splitVectors)]
             
+    def getAliveDefenders(self):
+        return filter(lambda x: x.health > 0, self.bots)
+    
+    def getDeadDefenders(self):
+        return (bot for bot in self.bots if bot.health <= 0)
+
     def reAssignRoles(self):
-        aliveDefenders = filter(lambda x: x.health > 0, self.bots)
+        aliveDefenders = self.getAliveDefenders()
         self.assignDefenders(aliveDefenders)
         for bot in aliveDefenders:
             bot.defenceTrigger = 1
-            
+        
+    def updateDefendingDirections(self, aliveDefenders):
+        if len(aliveDefenders) < self.numAliveDefenders:
+            for deadDefender in self.getDeadDefenders():
+                for enemy in deadDefender.visibleEnemies:
+                    self.Vectors.add((enemy.position - deadDefender.position, 1))
+    
     def execute(self):
         for defender in self.bots:
             if not inArea(defender.position, self.position):
@@ -105,6 +113,7 @@ class Defend():
                 return
         aliveDefenders = [defender for defender in self.bots if defender.health > 0]
         if len(aliveDefenders) != self.numAliveDefenders:
+            self.updateDefendingDirections(aliveDefenders)
             self.numAliveDefenders = len(aliveDefenders)
             self.reAssignRoles()
         for defender in self.bots:

@@ -105,7 +105,7 @@ class FSMCommander(Commander):
                     minimum = len(cells)
                     index = Vector2(-i, -j)
         
-        position= position + index
+        position = position + index
         if self.isNearEdge(0, position) and self.isNearEdge(1, position):
             isCorner = (1 if position.x < self.edgeDistance else -1, 1 if position.y < self.edgeDistance else -1)
             return Vector2(0 if position.x < self.edgeDistance else self.level.width , 0 if position.y < self.edgeDistance else self.level.height), isCorner
