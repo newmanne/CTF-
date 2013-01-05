@@ -30,19 +30,13 @@ class FSMCommander(Commander):
     numOfFlagGetters = 2
     edgeDistance = 10
     
-    def reassignScouts(self, group, number):
+    def reassign(self, toGroup, fromGroup, number):
         for _ in range(number):
-            bot = self.scoutsGroup.getRandomBot()
+            bot = fromGroup.getRandomBot()
             if bot:
-                self.scoutsGroup.removeBot(bot)
-                group.addBot(bot)
+                fromGroup.removeBot(bot)
+                toGroup.addBot(bot)
                 
-    def unassignScouts(self, group, number):
-        for _ in range(len(group.bots) - number):
-            bot = self.group.getRandomBot()
-            if bot:
-                self.scoutsGroup.addBot(bot)
-                group.removeBot(bot)
     
     def getVisibleEnemies(self):
         enemies = set()
@@ -77,10 +71,10 @@ class FSMCommander(Commander):
     def tick(self):
         self.updateGraph()
         for squad in self.squads:
-            if not [bot for bot in squad.bots if bot.health >0] and squad == self.defendingGroup:
-                self.reassignScouts(self.defendingGroup, self.numOfDefenders)
-            if len(squad.bots) > self.numOfDefenders and squad == self.defendingGroup:
-                self.unassignScouts(self.defendingGroup, self.numOfDefenders)
+            if squad == self.defendingGroup and not [bot for bot in squad.bots if bot.health >0] :
+                self.reassign(self.defendingGroup, self.scoutsGroup, self.numOfDefenders)
+            if squad == self.defendingGroup and  len(squad.bots) > self.numOfDefenders:
+                self.reassign(self.scoutsGroup, self.defendingGroup, len(squad.bots)-self.numOfDefenders)
             squad.updateGraph(self.graph)
             squad.update()
             
