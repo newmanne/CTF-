@@ -43,14 +43,12 @@ class Attack(Sneaky):
         
     def execute(self):
         
-        arrived = map(lambda x: inArea(x.position, self.position), self.bots)
-        arrived = all(arrived)
-        if arrived:
+        arrivedBots = (inArea(bot.position, self.position) for bot in self.bots)
+        if all(arrivedBots):
             self.squad.changeState(self.squad.prevState.pop())
             return
-        idle = map(lambda x: x.state == BotInfo.STATE_IDLE, self.bots)
-        idle = all(idle)
-        if self.priority == 0 and idle:
+        idleBots = (bot.state == BotInfo.STATE_IDLE for bot in self.bots)
+        if self.priority == 0 and all(idleBots):
             for bot in self.bots:
                 self.sneak(bot, self.position)
                 bot.changeState(ChargePosition(bot, self.paths[bot]))
