@@ -18,8 +18,6 @@ def canSee(A,B, width, height, isBlocked):
             if point[1] < 0: return False
             if point[1] >= height: return False
             
-            if isBlocked(int(point[0]), int(point[1])):
-                return False
     except:
         return False       
     return True 

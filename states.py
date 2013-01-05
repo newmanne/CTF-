@@ -30,7 +30,7 @@ class DefendingSomething(State):
     
     def __init__(self, bot, position, priority =0):
         self.bot = bot
-        self.position = position
+        self.position = self.bot.commander.level.findNearestFreePosition(position)
         self.priority = priority
         self.counter = 0
         self.atTempPosition = False
@@ -88,10 +88,11 @@ class AttackPostition(State):
     
     def __init__(self, bot, position, lookAt=None):
         self.bot = bot
-        self.position = position
-        if  (isinstance(self.position, list)):
+        if  (isinstance(position, list)):
+            self.position = map(lambda x: self.bot.commander.level.findNearestFreePosition(x), position)                
             self.lookAt = None
         else:
+            self.position = self.bot.commander.level.findNearestFreePosition(position)
             self.lookAt = lookAt
     
     def execute(self):
@@ -105,7 +106,10 @@ class ChargePosition(State):
     
     def __init__(self, bot, position):
         self.bot = bot
-        self.position = position   
+        if  (isinstance(position, list)):
+            self.position = map(lambda x: self.bot.commander.level.findNearestFreePosition(x), position)                
+        else:
+            self.position = self.bot.commander.level.findNearestFreePosition(position)
     
     def execute(self):
         pass

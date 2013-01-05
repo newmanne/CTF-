@@ -74,7 +74,8 @@ class Goal():
     DEFEND = 1
     PATROL = 2
     GETFLAG = 3
-    def __init__(self, objective, position, isCorner, priority = 0, graph=None, dirs = None):
+    GREED = 4
+    def __init__(self, objective, position=None, isCorner=None, priority = 0, graph=None, dirs = None):
         self.objective = objective
         self.position = position
         self.isCorner = isCorner
@@ -83,7 +84,7 @@ class Goal():
         self.dirs = dirs
         
 class Squad():
-    def __init__(self,bots, goal):
+    def __init__(self,bots, goal, commander=None):
         self.bots = bots
         self.goal = goal
         if (self.goal.objective == Goal.ATTACK):
@@ -94,6 +95,8 @@ class Squad():
             self.initalState = Scout(self, goal.position)            
         elif (self.goal.objective == Goal.GETFLAG):
             self.initalState = GetFlag(self, goal.graph)
+        elif (self.goal.objective == Goal.GREED):
+            self.initalState = Greedy(self, commander)
         else:
             raise ValueError
         self.currState = None
@@ -165,7 +168,7 @@ class DefendingGroup():
         
     def __init__(self, bots, isCorner = (0,0)):
         self.assignVector(isCorner)
-        self.defenders = {}
+        self.bots = {}
         self.assignDefenders(bots)
                 
     def assignDefenders(self, defenders):
@@ -173,10 +176,10 @@ class DefendingGroup():
             return
         splitVectors = list(chunks(self.Vectors, len(defenders)))
         for i, bot in enumerate(defenders):
-            self.defenders[bot] = splitVectors[i]
+            self.bots[bot] = splitVectors[i]
             
     def reAssignRoles(self):
-        aliveDefenders = filter(lambda x: x.health > 0, self.defenders.keys())
+        aliveDefenders = filter(lambda x: x.health > 0, self.bots.keys())
         self.assignDefenders(aliveDefenders)
         for bot in aliveDefenders:
             bot.defenceTrigger = 1

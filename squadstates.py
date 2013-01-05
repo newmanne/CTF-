@@ -7,7 +7,62 @@ import random
 import networkx as nx
 from api.gameinfo import BotInfo
 
+class Greedy():
+    def __init__(self, squad, commander):
+        self.squad = squad
+        self.bots = squad.bots
+        self.commander = commander
+    
+    def captured(self):
+        """Did this team cature the enemy flag?"""
+        return self.commander.game.enemyTeam.flag.carrier != None
+    
+    def execute(self):
+        """Process the bots that are waiting for orders, either send them all to attack or all to defend."""
+        captured = self.captured()
 
+        our_flag = self.commander.game.team.flag.position
+        their_flag = self.commander.game.enemyTeam.flag.position
+        their_base = self.commander.level.botSpawnAreas[self.commander.game.enemyTeam.name][0]
+
+        # First process bots that are done with their orders...
+        for bot in self.commander.game.bots_available:
+
+            # If this team has captured the flag, then tell this bot...
+            if captured:
+                target = self.commander.game.team.flagScoreLocation
+                # 1) Either run home, if this bot is the carrier or otherwise randomly.
+                if bot.flag is not None or (random.choice([True, False]) and (target - bot.position).length() > 8.0):
+                    self.commander.issue(commands.Charge, bot, target, description = 'scrambling home')
+                # 2) Run to the exact flag location, effectively escorting the carrier.
+                else:
+                    self.commander.issue(commands.Attack, bot, self.game.enemyTeam.flag.position, description = 'defending flag carrier',
+                               lookAt = random.choice([their_flag, our_flag, their_flag, their_base]))
+
+            # In this case, the flag has not been captured yet so have this bot attack it!
+            else:
+                path = [self.commander.game.enemyTeam.flag.position]
+                if contains(self.level.botSpawnAreas[self.commander.game.team.name], bot.position) and random.choice([True, False]):
+                    path.insert(0, self.commander.game.team.flagScoreLocation)
+                self.commander.issue(commands.Attack, bot, path, description = 'attacking enemy flag',
+                                lookAt = random.choice([their_flag, our_flag, their_flag, their_base]))
+
+        # Second process bots that are in a holding attack pattern.
+        holding = len(self.commander.game.bots_holding)
+        for bot in self.commander.game.bots_holding:
+            if holding > 1:
+                self.commander.issue(commands.Charge, bot, random.choice([b.position for b in bot.visibleEnemies]))
+            else:
+                target = self.level.findRandomFreePositionInBox((bot.position-5.0, bot.position+5.0))
+                self.commander.issue(commands.Attack, bot, target, lookAt = random.choice([b.position for b in bot.visibleEnemies]))
+
+        
+        
+    def enter(self):        
+        pass
+    
+    def exit(self):
+        pass
 
 class Sneaky():
     def getNodeIndex(self, position):
@@ -74,7 +129,7 @@ class Defend():
     def __init__(self, squad,  position, isCorner,priority, graph, defDirs):
         self.position = position
         self.isCorner = isCorner
-        self.defenders = squad.bots
+        self.bots = squad.bots
         self.squad = squad
         self.Vectors = defDirs
         self.assignDefenders(squad.bots)
@@ -96,30 +151,30 @@ class Defend():
                 bot.defending_direction = self.Vectors
             
     def reAssignRoles(self):
-        aliveDefenders = filter(lambda x: x.health > 0, self.defenders)
+        aliveDefenders = filter(lambda x: x.health > 0, self.bots)
         self.assignDefenders(aliveDefenders)
         for bot in aliveDefenders:
             bot.defenceTrigger = 1
             
     def execute(self):
-        for defender in self.defenders:
+        for defender in self.bots:
             if not inArea(defender.position, self.position):
                 self.squad.changeState(Attack(self.squad, self.position, self.isCorner, self.priority, self.graph))
                 return
-        aliveDefenders = [defender for defender in self.defenders if defender.health > 0]
+        aliveDefenders = [defender for defender in self.bots if defender.health > 0]
         if len(aliveDefenders) != self.numAliveDefenders:
             self.numAliveDefenders = len(aliveDefenders)
             self.reAssignRoles()
-        for defender in self.defenders:
+        for defender in self.bots:
             defender.update()      
     
     def enter(self):
-        for defender in self.defenders:
+        for defender in self.bots:
             if not inArea(defender.position, self.position):
                 self.squad.changeState(Attack(self.squad, self.position, self.isCorner, self.priority, self.graph))
                 return
         
-        for defender in self.defenders:
+        for defender in self.bots:
             defender.changeState(DefendingSomething(defender, defender.commander.level.findNearestFreePosition(self.position), priority=self.priority))           
     
     def exit(self):

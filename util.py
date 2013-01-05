@@ -1,5 +1,10 @@
 import math
 
+
+def contains(area, position):
+    start, finish = area
+    return position.x >= start.x and position.y >= start.y and position.x <= finish.x and position.y <= finish.y
+
 def distance(vector1, vector2):
     return (vector1-vector2).length();
 

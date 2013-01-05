@@ -24,21 +24,19 @@ import sys
 
 
 class FSMCommander(Commander):
-    numOfAttackers = 2
-    numOfDefenders = 2
-    numOfFlagGetters = 2
+    
     edgeDistance = 10
     
     def reassignScouts(self, group, number):
-        for i in range(number):
+        for _ in range(number):
             bot = self.scoutsGroup.getRandomBot()
             if bot:
                 self.scoutsGroup.removeBot(bot)
                 group.addBot(bot)
                 
     def unassignScouts(self, group, number):
-        for i in range(len(group) -number):
-            bot = self.group.getRandomBot()
+        for _ in range(len(group.bots) - number):
+            bot = group.getRandomBot()
             if bot:
                 self.scoutsGroup.addBot(bot)
                 group.removeBot(bot)
@@ -74,6 +72,9 @@ class FSMCommander(Commander):
         self.graph = G
             
     def tick(self):
+        if self.greed:
+            self.squads[0].update()
+            return
         self.updateGraph()
         for squad in self.squads:
             if not [bot for bot in squad.bots if bot.health >0] and squad == self.defendingGroup:
@@ -154,14 +155,19 @@ class FSMCommander(Commander):
         self.scoutPositions = []
         for i in mostVisible:
             self.scoutPositions.append(self.level.findNearestFreePosition(Vector2(i/(self.level.width-20), i%self.level.height)))
-        
     
     def initialize(self):
+        if self.game.bots_alive > 10:
+            self.squads = [Squad(self.game.bots_alive, Goal(Goal.GREED), self)]
+            self.greed = True
+            return
+        self.numOfDefenders = 2
+        self.numOfFlagGetters = 2
         self.setupGraps()
         self.getScoutingPositions()
         self.verbose = True
         self.bots = set()
-        self.defenders = []
+        self.bots = []
         self.attackers = []
         self.flagGetters = []
         self.scouts = []
@@ -173,18 +179,18 @@ class FSMCommander(Commander):
         enemyDirs = self.getDefendingDirs(enemyPosition)
         for i, bot_info in enumerate(self.game.bots_available):
             bot = Bot(bot_info, self)
-            if len(self.defenders) < self.numOfDefenders:                
-                self.defenders.append(bot)
-            elif len(self.flagGetters) < self.numOfFlagGetters:
+            if i < self.numOfDefenders:                
+                self.bots.append(bot)
+            elif self.numOfDefenders < i < self.numOfFlagGetters + self.numOfDefenders:
                 self.flagGetters.append(bot)
-            elif len(self.attackers) < self.numOfAttackers:
+            elif i % 2 == 0:
                 self.attackers.append(bot)
             else:
                 self.scouts.append(bot)
                 
         #TODO: priority decided based on distance
         teamPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
-        self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=teamPriority, graph=self.graph, dirs=teamDirs))
+        self.defendingGroup = Squad(self.bots, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=teamPriority, graph=self.graph, dirs=teamDirs))
         enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
         self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[self.game.enemyTeam.flagScoreLocation - enemyPosition]))
         self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
