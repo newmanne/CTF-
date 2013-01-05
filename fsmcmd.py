@@ -9,6 +9,7 @@ import itertools
 import random
 import numpy
 import scipy
+import itertools
 
 import networkx as nx
 # The maps for CTF are layed out along the X and Z axis in space, but can be
@@ -34,6 +35,13 @@ class FSMCommander(Commander):
             if bot:
                 self.scoutsGroup.removeBot(bot)
                 group.addBot(bot)
+                
+    def unassignScouts(self, group, number):
+        for i in range(len(group) -number):
+            bot = self.group.getRandomBot()
+            if bot:
+                self.scoutsGroup.addBot(bot)
+                group.removeBot(bot)
     
     def getVisibleEnemies(self):
         enemies = set()
@@ -53,44 +61,25 @@ class FSMCommander(Commander):
         enemies = self.getVisibleEnemies()
         nodes = map(lambda x: x.position, enemies)
         G = self.graph
-        weightAdded = 100
-        for node in nodes:            
-            for i in range(5):
-                if self.inZone(node + Vector2(i, i)):
-                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y+i]):
+        weightAdded = 5
+        for node in nodes:
+            rangeOf = list(range(-5, 6)) + list(range(-5, 6))            
+            rangeOf = [x for x in rangeOf if x != 0]            
+            surroundingNodes = set(itertools.permutations(rangeOf, 2))                  
+            for i,j in surroundingNodes:
+                if self.inZone(node + Vector2(i, j)):
+                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y+j]):
                         # we added this one before, just increase the weight by one
-                        G[self.terrain[node.x][node.y]][self.terrain[node.x+i][node.y+i]]['weight'] += weightAdded/i
-                    else:
-                        # new edge. add with weight=1
-                        G.add_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y+i], weight=weightAdded/i)
-                if self.inZone(node + Vector2(i, -i)):  
-                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y-i]):
-                        # we added this one before, just increase the weight by one
-                        G[self.terrain[node.x][node.y]][self.terrain[node.x+i][node.y-i]]['weight'] += weightAdded/i
-                    else:
-                        # new edge. add with weight=1
-                        G.add_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y-i], weight=weightAdded/i)
-                if self.inZone(node + Vector2(-i, i)):
-                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x-i][node.y+i]):
-                        # we added this one before, just increase the weight by one
-                        G[self.terrain[node.x][node.y]][self.terrain[node.x-i][node.y+i]]['weight'] += weightAdded/i
-                    else:
-                        # new edge. add with weight=1
-                        G.add_edge(self.terrain[node.x][node.y], self.terrain[node.x-i][node.y+i], weight=weightAdded/i)
-                if self.inZone(node + Vector2(-i, -i)):
-                    if G.has_edge(self.terrain[node.x][node.y], self.terrain[node.x-i][node.y-i]):
-                        # we added this one before, just increase the weight by one
-                        G[self.terrain[node.x][node.y]][self.terrain[node.x-i][node.y-i]]['weight'] += weightAdded/i
-                    else:
-                        # new edge. add with weight=1
-                        G.add_edge(self.terrain[node.x][node.y], self.terrain[node.x-i][node.y-i], weight=weightAdded/i)
+                        G[self.terrain[node.x][node.y]][self.terrain[node.x+i][node.y+j]]['weight'] += weightAdded/math.hypot(i, j)        
+        self.graph = G
             
-    
     def tick(self):
         self.updateGraph()
         for squad in self.squads:
             if not [bot for bot in squad.bots if bot.health >0] and squad == self.defendingGroup:
                 self.reassignScouts(self.defendingGroup, self.numOfDefenders)
+            if len(squad.bots) > self.numOfDefenders and squad == self.defendingGroup:
+                self.unassignScouts(self.defendingGroup, self.numOfDefenders)
             squad.updateGraph(self.graph)
             squad.update()
             
