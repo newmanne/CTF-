@@ -33,14 +33,14 @@ class Bot():
         return min(aliveEnemies, key=lambda enemy: distanceBetween(enemy, self.bot_info))
     
     def update(self):
-        if not self.currState and self.health >0:
+        if not self.currState and self.health > 0:
             self.currState = self.initalState
             self.currState.enter()
-        elif self.health >0:            
+        elif self.health > 0:            
             self.globalState.execute()
             if self.currState:
                 self.currState.execute()
-        elif self.health <=0:
+        elif self.health <= 0:
             self.currState = None
             self.prevState = []
     
