@@ -72,7 +72,7 @@ class Defend():
     def __init__(self, squad,  position, isCorner,priority, graph, defDirs):
         self.position = position
         self.isCorner = isCorner
-        self.defenders = squad.bots
+        self.bots = squad.bots
         self.squad = squad
         self.Vectors = defDirs
         self.assignDefenders(squad.bots)
@@ -94,30 +94,30 @@ class Defend():
                 bot.defending_direction = self.Vectors
             
     def reAssignRoles(self):
-        aliveDefenders = filter(lambda x: x.health > 0, self.defenders)
+        aliveDefenders = filter(lambda x: x.health > 0, self.bots)
         self.assignDefenders(aliveDefenders)
         for bot in aliveDefenders:
             bot.defenceTrigger = 1
             
     def execute(self):
-        for defender in self.defenders:
+        for defender in self.bots:
             if not inArea(defender.position, self.position):
                 self.squad.changeState(Attack(self.squad, self.position, self.isCorner, self.priority, self.graph))
                 return
-        aliveDefenders = [defender for defender in self.defenders if defender.health > 0]
+        aliveDefenders = [defender for defender in self.bots if defender.health > 0]
         if len(aliveDefenders) != self.numAliveDefenders:
             self.numAliveDefenders = len(aliveDefenders)
             self.reAssignRoles()
-        for defender in self.defenders:
+        for defender in self.bots:
             defender.update()      
     
     def enter(self):
-        for defender in self.defenders:
+        for defender in self.bots:
             if not inArea(defender.position, self.position):
                 self.squad.changeState(Attack(self.squad, self.position, self.isCorner, self.priority, self.graph))
                 return
         
-        for defender in self.defenders:
+        for defender in self.bots:
             defender.changeState(DefendingSomething(defender, defender.commander.level.findNearestFreePosition(self.position), priority=self.priority))           
     
     def exit(self):

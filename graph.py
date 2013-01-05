@@ -3,7 +3,7 @@ import networkx as nx
 from api import Vector2
 
 def setupGraphs(commander):
-    newGraph = makeGraph(commander)
+    makeGraph(commander)
     
     commander.graph.add_node("enemy_base")
     commander.positions["enemy_base"] = None
@@ -57,7 +57,7 @@ def setupGraphs(commander):
 
     updateEdgeWeights(commander, distances)
 
-    commander.graph, commander.originalGraph = newGraph, commander.graph
+    commander.originalGraph = commander.graph
 
 def makeGraph(commander):
     blocks = commander.level.blockHeights
@@ -96,7 +96,7 @@ def makeGraph(commander):
             r = commander.terrain[j + 1][i]
             if r:
                 e = g.add_edge(p, r, weight=1.0)
-    return g
+    commander.graph = g
 
 def getNodeIndex(commander, position):
     i = int(position.x)
