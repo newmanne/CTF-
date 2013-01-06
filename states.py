@@ -49,7 +49,7 @@ class DefendingAgainst(State):
     def __init__(self, bot, enemy, dontChange = False):
         self.bot = bot
         self.enemy = enemy
-        self.dontChange = False
+        self.dontChange = dontChange
     
     def execute(self):
         if (self.enemy.health <= 0 or self.enemy not in self.bot.visibleEnemies) and not self.dontChange:

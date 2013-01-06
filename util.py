@@ -16,8 +16,8 @@ def inVOF( bot, enemy, FOVangle):
             return True
         return False
     
-def inArea(position, target):
-    if distance(position, target) < 2:
+def inArea(position, target, vicinity=2):
+    if distance(position, target) < vicinity:
         return True
     return False
 

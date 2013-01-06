@@ -108,7 +108,7 @@ class Defend():
                 if all(areUniqueAngles(newVector, b[0], 15) for b in self.Vectors):
                     self.Vectors.add((newVector, 1))
                     
-        while len(self.Vectors)>self.squad.commander.numOfDefenders*2:
+        while len(self.Vectors) > self.squad.commander.numOfDefenders * 2:
             self.Vectors.pop()
     
     def execute(self):
@@ -143,7 +143,7 @@ class Scout():
         self.positions = positions
         self.numAlive = len(self.bots)
         self.currentlyScouting = random.choice(self.positions)
-        self.alertTicks = 20
+        self.alertTicks = 10
         self.counter = self.alertTicks
         self.alert = False
         self.currentAttacker = None
@@ -156,7 +156,7 @@ class Scout():
     def getDeadScouts(self):
         return (bot for bot in self.bots if bot.health <= 0)
             
-    def checkDead(self):
+    def getKiller(self):
         events = self.squad.commander.game.match.combatEvents
         killingEvents = (event for event in events for deadScout in self.getDeadScouts() if event.subject == deadScout.bot_info and event.type == MatchCombatEvent.TYPE_KILLED)
         
@@ -164,12 +164,15 @@ class Scout():
         if newKillingEvents:
             self.priorEvents = self.priorEvents.union(set(newKillingEvents))
             killingEvent = random.choice(newKillingEvents)
+            if not any(map(lambda x: inArea(x, killingEvent.instigator.position, 10), self.positions)):
+                self.positions.pop()
+                self.positions.append(killingEvent.instigator.position)
             return killingEvent.instigator
         else:
             return None
     
     def execute(self):
-        attacker = self.checkDead()
+        attacker = self.getKiller()
         if attacker or (self.alert and self.currentAttacker):
             if not self.alert:
                 self.alert = True

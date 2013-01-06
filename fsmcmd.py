@@ -135,10 +135,11 @@ class FSMCommander(Commander):
                 self.table[i][j] = len(cells)
         tempTable = self.table[10:self.level.width-10][:]
         reshaped = tempTable.reshape((self.level.width-20)*self.level.height) 
-        mostVisible = reshaped.argsort()[-10:][::-1]
+        mostVisible = reshaped.argsort()[-5:][::-1]
         self.scoutPositions = []
         for i in mostVisible:
             self.scoutPositions.append(self.level.findNearestFreePosition(Vector2(i/(self.level.width-20), i%self.level.height)))
+        self.scoutPositions.reverse()
         
     
     def initialize(self):
