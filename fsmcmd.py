@@ -124,6 +124,14 @@ class FSMCommander(Commander):
             if canSee(position, position + 7*i, self.level.width, self.level.height,lambda x, y: self.level.blockHeights[x][y] > 1):
                 ToFace.append((i, 1))
         return ToFace
+    
+
+    def getAreaOfInterest(self, howFarFromFlags):
+        xmin = max(0, min(self.game.team.flagSpawnLocation.x - howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.x - howFarFromFlags))
+        xmax = min(self.level.width, max(self.game.team.flagSpawnLocation.x + howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.x +howFarFromFlags))
+        ymin = max(0, min(self.game.team.flagSpawnLocation.y - howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.y - howFarFromFlags))
+        ymax = min(self.level.height, max(self.game.team.flagSpawnLocation.y + howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.y + howFarFromFlags))
+        return int(xmin), int(xmax), int(ymin), int(ymax)
         
     def getScoutingPositions(self):
         self.table = numpy.zeros((self.level.width, self.level.height))
@@ -133,12 +141,13 @@ class FSMCommander(Commander):
                 w = Wave((self.level.width, self.level.height), lambda x, y: self.level.blockHeights[x][y] > 1, lambda x, y: cells.append((x,y)))
                 w.compute(Vector2(i, j))
                 self.table[i][j] = len(cells)
-        tempTable = self.table[10:self.level.width-10][:]
-        reshaped = tempTable.reshape((self.level.width-20)*self.level.height) 
+        xmin, xmax, ymin, ymax = self.getAreaOfInterest(20)
+        tempTable = self.table[xmin:xmax, ymin:ymax]
+        reshaped = tempTable.reshape((xmax-xmin)*(ymax-ymin)) 
         mostVisible = reshaped.argsort()[-5:][::-1]
         self.scoutPositions = []
         for i in mostVisible:
-            self.scoutPositions.append(self.level.findNearestFreePosition(Vector2(i/(self.level.width-20), i%self.level.height)))
+            self.scoutPositions.append(self.level.findNearestFreePosition(Vector2(i/(ymax-ymin) + xmin, i%(xmax-xmin) + ymin)))
         self.scoutPositions.reverse()
         
     
