@@ -108,7 +108,7 @@ class Defend():
                 if all(areUniqueAngles(newVector, b[0], 15) for b in self.Vectors):
                     self.Vectors.add((newVector, 1))
                     
-        while len(self.Vectors) > self.squad.commander.numOfDefenders * 2:
+        while len(self.Vectors) > max(len(self.bots) * 2, 3):
             self.Vectors.pop()
     
     def execute(self):

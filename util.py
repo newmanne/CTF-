@@ -37,4 +37,4 @@ def chunks(seq, size):
 
 def areUniqueAngles(a, b, closeness=15):
     """Given 2 vector2s, do they differ by more than closeness degrees?"""
-    return False if math.degrees(math.acos(a.normalized().dotProduct(b.normalized()))) < closeness else True
+    return False if math.degrees(math.acos(min(a.normalized().dotProduct(b.normalized()), 1))) < closeness else True
