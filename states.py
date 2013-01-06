@@ -73,7 +73,7 @@ class AttackPostition(State):
     
     def execute(self):
         if self.bot.state == 1:
-            self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt=self.lookAt, description="Attacking Position")
+            self.bot.commander.issue(commands.Defend, self.bot, facingDirection=self.bot.defending_direction, description="Defending")
    
     def enter(self):
         self.bot.commander.issue(commands.Attack, self.bot, self.position, lookAt=self.lookAt, description="Attacking Position")
@@ -85,7 +85,8 @@ class ChargePosition(State):
         self.position = position   
     
     def execute(self):
-        pass
+        if self.bot.state == BotInfo.STATE_IDLE:
+            self.bot.commander.issue(commands.Defend, self.bot, facingDirection=self.bot.defending_direction, description="Defending")
     
     def enter(self):
         self.bot.commander.issue(commands.Charge, self.bot, self.position)
