@@ -46,12 +46,13 @@ class DefendingSomething(State):
 
 class DefendingAgainst(State):
     
-    def __init__(self, bot, enemy):
+    def __init__(self, bot, enemy, dontChange = False):
         self.bot = bot
         self.enemy = enemy
+        self.dontChange = False
     
     def execute(self):
-        if (self.enemy.health <= 0 or self.enemy not in self.bot.visibleEnemies):
+        if (self.enemy.health <= 0 or self.enemy not in self.bot.visibleEnemies) and not self.dontChange:
             self.bot.changeState(self.bot.prevState.pop())
         elif not inVOF(self.bot, self.enemy, self.bot.commander.level.fieldOfViewAngles[2]):
             self.bot.commander.issue(commands.Defend, self.bot, facingDirection = self.enemy.position - self.bot.position, description="Defending Against")

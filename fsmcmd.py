@@ -80,8 +80,6 @@ class FSMCommander(Commander):
         else:
             return self.level.height - position.y < self.edgeDistance or position.y < self.edgeDistance
     
-
-
     def getStrategicPostion(self, position):
         minimum = sys.maxint
         for i in range(5):
@@ -175,5 +173,5 @@ class FSMCommander(Commander):
         enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
         self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[(self.game.enemyTeam.flagScoreLocation - enemyPosition, 1)]), commander=self)
         self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
-        self.scoutsGroup = Squad(self.scouts, Goal(Goal.PATROL, self.scoutPositions, None))
+        self.scoutsGroup = Squad(self.scouts, Goal(Goal.PATROL, self.scoutPositions, None), self)
         self.squads = [self.defendingGroup, self.attackingGroup,self.flagGroup, self.scoutsGroup]

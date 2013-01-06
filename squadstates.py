@@ -107,6 +107,9 @@ class Defend():
                 newVector = killingEvent.instigator.position - killingEvent.subject.position
                 if all(areUniqueAngles(newVector, b[0], 15) for b in self.Vectors):
                     self.Vectors.add((newVector, 1))
+                    
+        while len(self.Vectors)>self.squad.commander.numOfDefenders*2:
+            self.Vectors.pop()
     
     def execute(self):
         for defender in self.bots:
@@ -140,19 +143,62 @@ class Scout():
         self.positions = positions
         self.numAlive = len(self.bots)
         self.currentlyScouting = random.choice(self.positions)
+        self.alertTicks = 20
+        self.counter = self.alertTicks
+        self.alert = False
+        self.currentAttacker = None
+        self.priorEvents = set()
     
     def enter(self):
         for bot in self.bots:
             bot.changeState(AttackPostition(bot, self.currentlyScouting))
+            
+    def getDeadScouts(self):
+        return (bot for bot in self.bots if bot.health <= 0)
+            
+    def checkDead(self):
+        events = self.squad.commander.game.match.combatEvents
+        killingEvents = (event for event in events for deadScout in self.getDeadScouts() if event.subject == deadScout.bot_info and event.type == MatchCombatEvent.TYPE_KILLED)
+        
+        newKillingEvents = [killEvent for killEvent in killingEvents if killEvent not in self.priorEvents]
+        if newKillingEvents:
+            self.priorEvents = self.priorEvents.union(set(newKillingEvents))
+            killingEvent = random.choice(newKillingEvents)
+            return killingEvent.instigator
+        else:
+            return None
     
     def execute(self):
-        idle = all(map(lambda x: inArea(x.position, self.currentlyScouting), self.bots))
-        for bot in self.bots:
+        attacker = self.checkDead()
+        if attacker or (self.alert and self.currentAttacker):
+            if not self.alert:
+                self.alert = True
+                self.currentAttacker = attacker
+                for bot in self.bots:
+                    if not inVOF(bot, attacker, self.squad.commander.level.fieldOfViewAngles[bot.state]):
+                        bot.changeState(DefendingAgainst(bot, attacker, True))
+                    else:
+                        bot.update()
+            elif self.counter!=0:
+                self.counter-=1
+                for bot in self.bots:
+                    bot.update()
+            elif self.counter == 0:
+                self.alert = False
+                self.currentAttacker = None
+                self.counter = self.alertTicks
+                for bot in self.bots:
+                    bot.changeState(AttackPostition(bot, self.currentlyScouting))
+                
+        else:
+            idle = all(map(lambda x: inArea(x.position, self.currentlyScouting), self.bots))
             if idle:
                 self.currentlyScouting = random.choice(self.positions)
-                bot.changeState(AttackPostition(bot, self.currentlyScouting))
-            else:
-                bot.update()
+            for bot in self.bots:
+                if idle:
+                    bot.changeState(AttackPostition(bot, self.currentlyScouting))
+                else:
+                    bot.update()
                 
     def exit(self):
         pass
