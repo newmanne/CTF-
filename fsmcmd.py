@@ -82,26 +82,17 @@ class FSMCommander(Commander):
     
     def getStrategicPostion(self, position):
         minimum = sys.maxint
-        for i in range(5):
-            for j in range(5):
-                cells = []
-                w = Wave((self.level.width, self.level.height), lambda x, y: self.level.blockHeights[x][y] > 1, lambda x, y: cells.append((x,y)))
-                w.compute(Vector2(min(position.x + i, self.level.width-1),min(position.y + j, self.level.height-1)))
-                if len(cells) < minimum and canSee(position + Vector2(i, j), position, self.level.width, self.level.height, lambda x, y: self.level.blockHeights[x][y] > 1):
-                    minimum = len(cells)
-                    index = Vector2(i, j)
-                w.compute(Vector2(max(position.x - i, 0),min(position.y + j, self.level.height-1)))
-                if len(cells) < minimum and canSee(position + Vector2(i, -j), position, self.level.width, self.level.height, lambda x, y: self.level.blockHeights[x][y] > 1):
-                    minimum = len(cells)
-                    index = Vector2(i, -j)
-                w.compute(Vector2(min(position.x + i, self.level.width-1),max(position.y - j, 0)))
-                if len(cells) < minimum and canSee(position + Vector2(-i, j), position, self.level.width, self.level.height, lambda x, y: self.level.blockHeights[x][y] > 1):
-                    minimum = len(cells)
-                    index = Vector2(-i, j)
-                w.compute(Vector2(max(position.x - i, 0),max(position.y - j, 0)))
-                if len(cells) < minimum and canSee(position + Vector2(-i, -j), position, self.level.width, self.level.height, lambda x, y: self.level.blockHeights[x][y] > 1):
-                    minimum = len(cells)
-                    index = Vector2(-i, -j)
+        index = Vector2(0,0)
+        rangeOf = list(range(-5, 6)) + list(range(-5, 6))            
+        rangeOf = [x for x in rangeOf if x != 0]            
+        surroundingNodes = set(itertools.permutations(rangeOf, 2)) 
+        for i,j in surroundingNodes:
+            cells = []
+            w = Wave((self.level.width, self.level.height), lambda x, y: self.level.blockHeights[x][y] > 1, lambda x, y: cells.append((x,y)))
+            w.compute(Vector2(min(position.x + i, self.level.width-1),min(position.y + j, self.level.height-1)))
+            if len(cells) < minimum and canSee(position + Vector2(i, j), position, self.level.width, self.level.height, lambda x, y: self.level.blockHeights[x][y] > 1):
+                minimum = len(cells)
+                index = Vector2(i, j)
         
         position = position + index
         if self.isNearEdge(0, position) and self.isNearEdge(1, position):
@@ -131,29 +122,10 @@ class FSMCommander(Commander):
         xmax = min(self.level.width, max(self.game.team.flagSpawnLocation.x + howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.x +howFarFromFlags))
         ymin = max(0, min(self.game.team.flagSpawnLocation.y - howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.y - howFarFromFlags))
         ymax = min(self.level.height, max(self.game.team.flagSpawnLocation.y + howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.y + howFarFromFlags))
-        return int(xmin), int(xmax), int(ymin), int(ymax)
-        
-    def getScoutingPositions(self):
-        self.table = numpy.zeros((self.level.width, self.level.height))
-        for i in range(self.level.width):
-            for j in range(self.level.height):
-                cells = []
-                w = Wave((self.level.width, self.level.height), lambda x, y: self.level.blockHeights[x][y] > 1, lambda x, y: cells.append((x,y)))
-                w.compute(Vector2(i, j))
-                self.table[i][j] = len(cells)
-        xmin, xmax, ymin, ymax = self.getAreaOfInterest(20)
-        tempTable = self.table[xmin:xmax, ymin:ymax]
-        reshaped = tempTable.reshape((xmax-xmin)*(ymax-ymin)) 
-        mostVisible = reshaped.argsort()[-5:][::-1]
-        self.scoutPositions = []
-        for i in mostVisible:
-            self.scoutPositions.append(self.level.findNearestFreePosition(Vector2(i/(ymax-ymin) + xmin, i%(xmax-xmin) + ymin)))
-        self.scoutPositions.reverse()
-        
+        return int(xmin), int(xmax), int(ymin), int(ymax)           
     
     def initialize(self):
         setupGraphs(self) # inits self.graph
-        self.getScoutingPositions()
         self.verbose = True
         self.bots = set()
         self.defenders = []
@@ -185,5 +157,4 @@ class FSMCommander(Commander):
         enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
         self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[(self.game.enemyTeam.flagScoreLocation - enemyPosition, 1)]), commander=self)
         self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
-        self.scoutsGroup = Squad(self.scouts, Goal(Goal.PATROL, self.scoutPositions, None), self)
-        self.squads = [self.defendingGroup, self.attackingGroup,self.flagGroup, self.scoutsGroup]
+        self.squads = [self.defendingGroup, self.attackingGroup,self.flagGroup]
