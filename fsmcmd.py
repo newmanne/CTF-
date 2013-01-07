@@ -67,12 +67,54 @@ class FSMCommander(Commander):
                         # we added this one before, just increase the weight by one
                         G[self.terrain[node.x][node.y]][self.terrain[node.x+i][node.y+j]]['weight'] += weightAdded/math.hypot(i, j)        
         self.graph = G
+        
+    def captured(self):
+        """Did this team cature the enemy flag?"""
+        return self.game.enemyTeam.flag.carrier != None
             
     def tick(self):
-        self.updateGraph()
-        for squad in self.squads:
-            squad.updateGraph(self.graph)
-            squad.update()
+        if self.game.match.scores[self.game.team.name] > self.game.match.scores[self.game.enemyTeam.name] - 1:
+            self.updateGraph()
+            for squad in self.squads:
+                squad.updateGraph(self.graph)
+                squad.update()
+        else:
+            captured = self.captured()
+
+            our_flag = self.game.team.flag.position
+            their_flag = self.game.enemyTeam.flag.position
+            their_base = self.level.botSpawnAreas[self.game.enemyTeam.name][0]
+    
+            # First process bots that are done with their orders...
+            for bot in self.game.bots_available:
+    
+                # If this team has captured the flag, then tell this bot...
+                if captured:
+                    target = self.game.team.flagScoreLocation
+                    # 1) Either run home, if this bot is the carrier or otherwise randomly.
+                    if bot.flag is not None or (random.choice([True, False]) and (target - bot.position).length() > 8.0):
+                        self.issue(commands.Charge, bot, target, description = 'scrambling home')
+                    # 2) Run to the exact flag location, effectively escorting the carrier.
+                    else:
+                        self.issue(commands.Attack, bot, self.game.enemyTeam.flag.position, description = 'defending flag carrier',
+                                   lookAt = random.choice([their_flag, our_flag, their_flag, their_base]))
+    
+                # In this case, the flag has not been captured yet so have this bot attack it!
+                else:
+                    path = [self.game.enemyTeam.flag.position]
+                    if contains(self.level.botSpawnAreas[self.game.team.name], bot.position) and random.choice([True, False]):
+                        path.insert(0, self.game.team.flagScoreLocation)
+                    self.issue(commands.Attack, bot, path, description = 'attacking enemy flag',
+                                    lookAt = random.choice([their_flag, our_flag, their_flag, their_base]))
+    
+            # Second process bots that are in a holding attack pattern.
+            holding = len(self.game.bots_holding)
+            for bot in self.game.bots_holding:
+                if holding > 1:
+                    self.issue(commands.Charge, bot, random.choice([b.position for b in bot.visibleEnemies]))
+                else:
+                    target = self.level.findRandomFreePositionInBox((bot.position-5.0, bot.position+5.0))
+                    self.issue(commands.Attack, bot, target, lookAt = random.choice([b.position for b in bot.visibleEnemies]))
             
     def isNearEdge(self, xory, position):
         if xory==0:
