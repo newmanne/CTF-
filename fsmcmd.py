@@ -172,10 +172,12 @@ class FSMCommander(Commander):
                 self.defenders.append(bot)
             elif self.numOfDefenders <= i < self.numOfFlagGetters + self.numOfDefenders:
                 self.flagGetters.append(bot)
-            elif i %2 == 0:
+            elif i %3 == 0 or len(self.attackers) < 2:
                 self.attackers.append(bot)
+            elif i %3 == 1:
+                self.defenders.append(bot)
             else:
-                self.scouts.append(bot)
+                self.flagGetters.append(bot)
                 
         #TODO: priority decided based on distance
         teamPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
