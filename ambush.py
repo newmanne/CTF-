@@ -6,7 +6,10 @@ from visibility import Wave
 from api import Commander, commands, gameinfo
 from api.vector2 import Vector2
 
+
+from PySide import QtGui, QtCore
 import networkx as nx
+
 
 SCALE = 10
 
@@ -37,10 +40,18 @@ class AmbushCommander(Commander):
                     d = self.visibilities.pixel(i,j) * 255 / brightest
             else:                
                 d = 32
-                            
+            visualizer.drawPixel((i, j), QtGui.qRgb(d,d,d))
+                
+    def drawPreBots(self, visualizer):
+        for p, _ in self.ambushes:
+            visualizer.drawCircle(p, QtGui.qRgb(255,255,0), 0.5)
+            
+    def keyPressed(self, e):
+        if e.key() == QtCore.Qt.Key_Space:
+            self.mode = 1 - self.mode
+
     def initialize(self):
         self.mode = self.MODE_VISIBILITY
-
 
         self.makeGraph()
         
@@ -67,6 +78,8 @@ class AmbushCommander(Commander):
         vf2s = nx.shortest_path(self.graph, source=self.node_EnemyFlagIndex, target=self.node_EnemyScoreIndex)
         #vb2s = nx.shortest_path(self.graph, source="enemy_base", target=self.node_EnemyScoreIndex)
 
+        self.visibilities = QtGui.QImage(88, 50, QtGui.QImage.Format_ARGB32)
+        self.visibilities.fill(0)
         path = vb2f+vf2s
         edgesinpath=zip(path[0:],path[1:])        
         for vt, vf in edgesinpath[:-1]:
@@ -94,6 +107,8 @@ class AmbushCommander(Commander):
             w = Wave((88, 50), lambda x, y: self.level.blockHeights[x][y] > 1, lambda x, y: cells.append((x,y)))
             w.compute(position)
 
+            for x, y in [c for c in cells if visible(Vector2(c[0]+0.5, c[1]+0.5))]:
+                self.visibilities.setPixel(x, y, self.visibilities.pixel(x, y)+1)
 
         starte, finishe = self.level.botSpawnAreas[self.game.enemyTeam.name]
         startf, finishf = self.level.botSpawnAreas[self.game.team.name]
@@ -114,6 +129,9 @@ class AmbushCommander(Commander):
             cells = []
             w = Wave((88, 50), lambda x, y: self.level.blockHeights[x][y] > 1, lambda x, y: cells.append((x,y)))
             w.compute(position)
+
+            for x, y in [c for c in cells if visible(Vector2(c[0]+0.5, c[1]+0.5))]:
+                self.visibilities.setPixel(x, y, self.visibilities.pixel(x, y)+1)
 
 
         self.node_EnemyBaseToFlagIndex = "enemy_base_to_flag"
@@ -239,7 +257,6 @@ class AmbushCommander(Commander):
 
     def shutdown(self):
         pass
-    
 
     def makeGraph(self):
         blocks = self.level.blockHeights
@@ -286,4 +303,3 @@ class AmbushCommander(Commander):
         j = int(position.y)
         width = self.graph.graph["map_width"]
         return i+j*width
-

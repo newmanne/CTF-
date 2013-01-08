@@ -11,6 +11,14 @@ import numpy
 import scipy
 import itertools
 
+from pybrain.structure import FeedForwardNetwork
+from pybrain.structure import LinearLayer, SigmoidLayer
+from pybrain.structure import FullConnection
+from pybrain.datasets import SupervisedDataSet
+from pybrain.supervised.trainers import BackpropTrainer
+
+import pickle
+
 import networkx as nx
 # The maps for CTF are layed out along the X and Z axis in space, but can be
 # effectively be considered 2D.
@@ -69,9 +77,7 @@ class FSMCommander(Commander):
         self.graph = G
             
     def tick(self):
-        self.updateGraph()
         for squad in self.squads:
-            squad.updateGraph(self.graph)
             squad.update()
             
     def isNearEdge(self, xory, position):
@@ -79,6 +85,7 @@ class FSMCommander(Commander):
             return self.level.width - position.x < self.edgeDistance or position.x < self.edgeDistance
         else:
             return self.level.height - position.y < self.edgeDistance or position.y < self.edgeDistance
+        
     
     def getStrategicPostion(self, position):
         minimum = sys.maxint
@@ -89,12 +96,12 @@ class FSMCommander(Commander):
         for i,j in surroundingNodes:
             cells = []
             w = Wave((self.level.width, self.level.height), lambda x, y: self.level.blockHeights[x][y] > 1, lambda x, y: cells.append((x,y)))
-            w.compute(Vector2(min(position.x + i, self.level.width-1),min(position.y + j, self.level.height-1)))
-            if len(cells) < minimum and canSee(position + Vector2(i, j), position, self.level.width, self.level.height, lambda x, y: self.level.blockHeights[x][y] > 1):
+            positionTemp = self.level.findNearestFreePosition(Vector2(min(position.x + i, self.level.width-1),min(position.y + j, self.level.height-1)))
+            w.compute(positionTemp)
+            if len(cells) < minimum and canSee(positionTemp, position, self.level.width, self.level.height, lambda x, y: self.level.blockHeights[x][y] > 1):
                 minimum = len(cells)
-                index = Vector2(i, j)
+                position = positionTemp
         
-        position = position + index
         if self.isNearEdge(0, position) and self.isNearEdge(1, position):
             isCorner = (1 if position.x < self.edgeDistance else -1, 1 if position.y < self.edgeDistance else -1)
             return Vector2(0 if position.x < self.edgeDistance else self.level.width , 0 if position.y < self.edgeDistance else self.level.height), isCorner
@@ -106,6 +113,19 @@ class FSMCommander(Commander):
             return Vector2(position.x, 0 if position.y < self.edgeDistance else self.level.height), isCorner
         else:
             return position, (0,0)
+        
+    def getPossiblePoints(self, position):
+        rangeOf = list(range(-5, 6)) + list(range(-5, 6))            
+        rangeOf = [x for x in rangeOf if x != 0]            
+        surroundingNodes = set(itertools.permutations(rangeOf, 2))
+        possibleVectors = set()
+        blocks = numpy.array(self.level.blockHeights)
+        for i,j in surroundingNodes:
+            positionTemp = self.level.findNearestFreePosition(Vector2(min(position.x + i, self.level.width-1),min(position.y + j, self.level.height-1)))
+            if blocks[min(position.x + i, self.level.width-1)][min(position.y + j, self.level.height-1)] == 0:
+                possibleVectors.add(positionTemp)
+        return list(possibleVectors)
+            
         
         
     def getDefendingDirs(self, position):
@@ -122,9 +142,46 @@ class FSMCommander(Commander):
         xmax = min(self.level.width, max(self.game.team.flagSpawnLocation.x + howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.x +howFarFromFlags))
         ymin = max(0, min(self.game.team.flagSpawnLocation.y - howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.y - howFarFromFlags))
         ymax = min(self.level.height, max(self.game.team.flagSpawnLocation.y + howFarFromFlags, self.game.enemyTeam.flagSpawnLocation.y + howFarFromFlags))
-        return int(xmin), int(xmax), int(ymin), int(ymax)           
+        return int(xmin), int(xmax), int(ymin), int(ymax)
+    
+    def findMinimumScorePosition(self):
+        possiblePoints = self.getPossiblePoints(self.game.team.flag.position)
+        inputField = self.getBlockHeightsNearFlag().reshape(1,100)
+        inputField = tuple(tuple(x) for x in inputField)[0]       
+        value = sys.maxint
+        position = None
+        for point in possiblePoints:
+            inputFieldTemp = inputField + (point.x, point.y)
+            if self.net.activate(inputFieldTemp) < value:
+                position = point
+        return position
     
     def initialize(self):
+        try:
+            fileObject = open('network','r')
+            self.net = pickle.load(fileObject)
+            fileObject = open('data','r')
+            self.dataset = pickle.load(fileObject)
+            print "Found previous network"
+            
+        except:
+            self.net = FeedForwardNetwork()
+            inputLayer = LinearLayer(102)
+            hiddenLayer = SigmoidLayer(40)
+            outLayer = LinearLayer(1)
+            self.net.addInputModule(inputLayer)
+            self.net.addModule(hiddenLayer)
+            self.net.addOutputModule(outLayer)
+            in_to_hidden = FullConnection(inputLayer, hiddenLayer)
+            hidden_to_out = FullConnection(hiddenLayer, outLayer)
+            self.net.addConnection(in_to_hidden)
+            self.net.addConnection(hidden_to_out)
+            self.net.sortModules()
+            self.dataset = SupervisedDataSet(102, 1)
+            print "Didn't find previous network"
+            teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
+            
+        teamPosition = self.findMinimumScorePosition()
         setupGraphs(self) # inits self.graph
         self.verbose = True
         self.bots = set()
@@ -132,8 +189,9 @@ class FSMCommander(Commander):
         self.attackers = []
         self.flagGetters = []
         self.scouts = []
-        teamPosition, isTeamCorner = self.getStrategicPostion(self.game.team.flag.position)
-        teamPosition = self.level.findNearestFreePosition(teamPosition)
+        isTeamCorner = (0,0)        
+        self.teamPosition = teamPosition
+        
         teamDirs = self.getDefendingDirs(teamPosition)
         enemyPosition, isEnemyCorner = self.getStrategicPostion(self.game.enemyTeam.flagScoreLocation)
         enemyPosition = self.level.findNearestFreePosition(enemyPosition)
@@ -142,19 +200,48 @@ class FSMCommander(Commander):
             bot = Bot(bot_info, self)
             if i < self.numOfDefenders:                
                 self.defenders.append(bot)
-            elif self.numOfDefenders <= i < self.numOfFlagGetters + self.numOfDefenders:
-                self.flagGetters.append(bot)
-            elif i %3 == 0 or len(self.attackers) < 2:
-                self.attackers.append(bot)
-            elif i %3 == 1:
-                self.defenders.append(bot)
-            else:
-                self.flagGetters.append(bot)
+#            elif self.numOfDefenders <= i < self.numOfFlagGetters + self.numOfDefenders:
+#                self.flagGetters.append(bot)
+#            elif i %3 == 0 or len(self.attackers) < 2:
+#                self.attackers.append(bot)
+#            elif i %3 == 1:
+#                self.defenders.append(bot)
+#            else:
+#                self.flagGetters.append(bot)
                 
         #TODO: priority decided based on distance
         teamPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
         self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=teamPriority, graph=self.graph, dirs=teamDirs), commander=self)
-        enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
-        self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[(self.game.enemyTeam.flagScoreLocation - enemyPosition, 1)]), commander=self)
-        self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
-        self.squads = [self.defendingGroup, self.attackingGroup,self.flagGroup]
+#        enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
+#        self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[(self.game.enemyTeam.flagScoreLocation - enemyPosition, 1)]), commander=self)
+#        self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
+        self.squads = [self.defendingGroup]
+    
+    def getBlockHeightsNearFlag(self):
+        flag = self.game.team.flagSpawnLocation
+        xmin = flag.x - 5 if flag.x - 5 > 0 else 0
+        xmax = flag.x + 5 if flag.x + 5 < self.level.width -1 else self.level.width - 1
+        ymin = flag.y - 5 if flag.y - 5 > 0 else 0
+        ymax = flag.y + 5 if flag.y + 5 < self.level.height -1 else self.level.height - 1
+        blocks = numpy.array(self.level.blockHeights)
+        return blocks[int(xmin):int(xmax), int(ymin):int(ymax)]
+        
+        
+    def shutdown(self):
+        outputField = (self.game.match.scores[self.game.enemyTeam.name])
+        inputField = self.getBlockHeightsNearFlag().reshape(1,100)
+        inputField = tuple(tuple(x) for x in inputField)[0]
+        inputField = inputField + (self.teamPosition.x,  self.teamPosition.y)
+        self.dataset.addSample(inputField, (outputField))
+        try:
+            trainer = BackpropTrainer(self.net, self.dataset)
+            trainer.trainEpochs(epochs=100)
+        except:
+            pass
+        
+        fileObject = open('network', 'w')
+        pickle.dump(self.net, fileObject)
+        
+        fileObject = open('data', 'w')
+        pickle.dump(self.dataset, fileObject)
+        Commander.shutdown(self)

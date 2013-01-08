@@ -6,6 +6,7 @@ import random
 
 import networkx as nx
 from api.gameinfo import BotInfo, MatchCombatEvent
+import itertools
 
 class Sneaky():
     def getNodeIndex(self, position):
@@ -38,21 +39,51 @@ class Attack(Sneaky):
         self.priority = priority
         self.graph = graph
         self.paths = {}
+        self.deadBots = set()
+        self.arrivedBots = set()
         
+        
+    def updateDeadBots(self):
+        self.deadBots = filter(lambda x: x.health <= 0, self.deadBots)
+        newDeadBots = [bot in bot for bot in self.bots if bot.health <=0 and bot not in self.bots]
+        weightAdded = 10
+        for bot in newDeadBots:
+            node = bot.position
+            rangeOf = list(range(-5, 6)) + list(range(-5, 6))            
+            rangeOf = [x for x in rangeOf if x != 0]            
+            surroundingNodes = set(itertools.permutations(rangeOf, 2))                  
+            for i,j in surroundingNodes:
+                if self.inZone(node + Vector2(i, j)):
+                    if self.graph.has_edge(self.terrain[node.x][node.y], self.terrain[node.x+i][node.y+j]):
+                        # we added this one before, just increase the weight by one
+                        self.graph[self.terrain[node.x][node.y]][self.terrain[node.x+i][node.y+j]]['weight'] += weightAdded/math.hypot(i, j)   
+    
     def execute(self):
-        
+        self.updateDeadBots()
         arrivedBots = (inArea(bot.position, self.position) for bot in self.bots)
         if all(arrivedBots):
             self.squad.changeState(self.squad.prevState.pop())
             return
+        else:
+            arrivedBots = filter(lambda x: inArea(x.position, self.position) and x not in self.arrivedBots, self.bots)
+            self.arrivedBots = self.arrivedBots.union(set(arrivedBots))
+            for bot in arrivedBots:
+                bot.changeState(DefendingSomething(bot, bot.commander.level.findNearestFreePosition(self.position), priority=self.priority))           
         idleBots = (bot.state == BotInfo.STATE_IDLE for bot in self.bots)
+        toBeRemoved = None
         if self.priority == 0 and all(idleBots):
             for bot in self.bots:
-                self.sneak(bot, self.position)
-                bot.changeState(ChargePosition(bot, self.paths[bot]))
+                if bot.flag:
+                    bot.changeState(ChargePosition(bot, bot.commander.game.team.flagScoreLocation))
+                    toBeRemoved = bot
+                else:
+                    self.sneak(bot, self.position)
+                    bot.changeState(ChargePosition(bot, self.paths[bot]))
         else:
             for bot in self.bots:
                 bot.update()
+        if toBeRemoved:
+            self.bots.remove(toBeRemoved)
 
     def enter(self):        
         for bot in self.bots:
@@ -221,15 +252,15 @@ class GetFlag(Sneaky):
             bot.changeState(ChargePosition(bot, self.paths[bot]))
     
     def execute(self):
-        for bot in self.bots:
-            if bot.flag:
-                self.flagBearer = bot
+
         self.weHaveFlag = any(map(lambda x: x.flag, self.bots))
-                    
+        if not self.weHaveFlag:
+            self.flagBearer = None
         for bot in self.bots:
-            if bot.state == BotInfo.STATE_IDLE:
+            if bot.state == BotInfo.STATE_IDLE or (not self.flagBearer and self.weHaveFlag and bot.flag):
                 if self.weHaveFlag:
                     if bot.flag:
+                        self.flagBearer = bot
                         self.sneak(bot, bot.commander.game.team.flagScoreLocation)
                         bot.changeState(ChargePosition(bot, self.paths[bot]))
                     else:

@@ -1,15 +1,15 @@
 from itertools import izip
 from math import floor, copysign
 from api import Vector2
-
+from util import inArea
 sign = lambda x: int(copysign(1, x))
 
 
 def canSee(A,B, width, height, isBlocked):
     delta = line(A, B, covering=False)
-    length = (B-A).length()
+    point = (A.x, A.y)
     try:
-        for i in range(int(length)):
+        while not inArea(B, Vector2(point[0], point[1]), 0.05):
             point = delta.next()
             
             # Check if the wave has stepped out of bounds.
