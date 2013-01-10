@@ -115,7 +115,7 @@ class FSMCommander(Commander):
             return position, (0,0)
         
     def getPossiblePoints(self, position):
-        rangeOf = list(range(-5, 6)) + list(range(-5, 6))            
+        rangeOf = list(range(-10, 11)) + list(range(-10, 11))            
         rangeOf = [x for x in rangeOf if x != 0]            
         surroundingNodes = set(itertools.permutations(rangeOf, 2))
         possibleVectors = set()
@@ -151,7 +151,7 @@ class FSMCommander(Commander):
         value = sys.maxint
         position = None
         for point in possiblePoints:
-            inputFieldTemp = inputField + (point.x, point.y)
+            inputFieldTemp = inputField + (point.x, point.y, self.game.team.flag.position.x, self.game.team.flag.position.y)
             if self.net.activate(inputFieldTemp) < value:
                 position = point
         return position
@@ -163,11 +163,12 @@ class FSMCommander(Commander):
             fileObject = open('data','r')
             self.dataset = pickle.load(fileObject)
             print "Found previous network"
+            teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
             
         except:
             self.net = FeedForwardNetwork()
-            inputLayer = LinearLayer(102)
-            hiddenLayer = SigmoidLayer(40)
+            inputLayer = LinearLayer(self.level.width*self.level.height + 4)
+            hiddenLayer = SigmoidLayer(66)
             outLayer = LinearLayer(1)
             self.net.addInputModule(inputLayer)
             self.net.addModule(hiddenLayer)
@@ -177,11 +178,11 @@ class FSMCommander(Commander):
             self.net.addConnection(in_to_hidden)
             self.net.addConnection(hidden_to_out)
             self.net.sortModules()
-            self.dataset = SupervisedDataSet(102, 1)
+            self.dataset = SupervisedDataSet(self.level.width*self.level.height + 4, 1)
             print "Didn't find previous network"
             teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
             
-        teamPosition = self.findMinimumScorePosition()
+#        teamPosition = self.findMinimumScorePosition()
         setupGraphs(self) # inits self.graph
         self.verbose = True
         self.bots = set()
@@ -229,15 +230,15 @@ class FSMCommander(Commander):
         
     def shutdown(self):
         outputField = (self.game.match.scores[self.game.enemyTeam.name])
-        inputField = self.getBlockHeightsNearFlag().reshape(1,100)
+        inputField = numpy.array(self.level.blockHeights).reshape(1, self.level.width*self.level.height)
         inputField = tuple(tuple(x) for x in inputField)[0]
-        inputField = inputField + (self.teamPosition.x,  self.teamPosition.y)
+        inputField = inputField + (self.teamPosition.x,  self.teamPosition.y, self.game.team.flagSpawnLocation.x, self.game.team.flagSpawnLocation.y)
         self.dataset.addSample(inputField, (outputField))
-        try:
-            trainer = BackpropTrainer(self.net, self.dataset)
-            trainer.trainEpochs(epochs=100)
-        except:
-            pass
+#        try:
+#            trainer = BackpropTrainer(self.net, self.dataset)
+#            trainer.trainEpochs(epochs=100)
+#        except:
+#            pass
         
         fileObject = open('network', 'w')
         pickle.dump(self.net, fileObject)
