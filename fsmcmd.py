@@ -157,32 +157,33 @@ class FSMCommander(Commander):
         return position
     
     def initialize(self):
-        try:
-            fileObject = open('network','r')
-            self.net = pickle.load(fileObject)
-            fileObject = open('data','r')
-            self.dataset = pickle.load(fileObject)
-            print "Found previous network"
-            teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
-            
-        except:
-            self.net = FeedForwardNetwork()
-            inputLayer = LinearLayer(self.level.width*self.level.height + 4)
-            hiddenLayer = SigmoidLayer(66)
-            outLayer = LinearLayer(1)
-            self.net.addInputModule(inputLayer)
-            self.net.addModule(hiddenLayer)
-            self.net.addOutputModule(outLayer)
-            in_to_hidden = FullConnection(inputLayer, hiddenLayer)
-            hidden_to_out = FullConnection(hiddenLayer, outLayer)
-            self.net.addConnection(in_to_hidden)
-            self.net.addConnection(hidden_to_out)
-            self.net.sortModules()
-            self.dataset = SupervisedDataSet(self.level.width*self.level.height + 4, 1)
-            print "Didn't find previous network"
-            teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
-            
+#         try:
+# #             fileObject = open('network','r')
+# #             self.net = pickle.load(fileObject)
+#             fileObject = open('data','r')
+#             self.dataset = pickle.load(fileObject)
+#             print "Found previous network"
+#             teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
+#             
+#         except:
+#             self.net = FeedForwardNetwork()
+#             inputLayer = LinearLayer(self.level.width*self.level.height + 4)
+#             hiddenLayer = SigmoidLayer(66)
+#             outLayer = LinearLayer(1)
+#             self.net.addInputModule(inputLayer)
+#             self.net.addModule(hiddenLayer)
+#             self.net.addOutputModule(outLayer)
+#             in_to_hidden = FullConnection(inputLayer, hiddenLayer)
+#             hidden_to_out = FullConnection(hiddenLayer, outLayer)
+#             self.net.addConnection(in_to_hidden)
+#             self.net.addConnection(hidden_to_out)
+#             self.net.sortModules()
+#             self.dataset = SupervisedDataSet(self.level.width*self.level.height + 4, 1)
+#             print "Didn't find previous network"
+#             teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
+#             
 #        teamPosition = self.findMinimumScorePosition()
+        teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
         setupGraphs(self) # inits self.graph
         self.verbose = True
         self.bots = set()
@@ -233,16 +234,16 @@ class FSMCommander(Commander):
         inputField = numpy.array(self.level.blockHeights).reshape(1, self.level.width*self.level.height)
         inputField = tuple(tuple(x) for x in inputField)[0]
         inputField = inputField + (self.teamPosition.x,  self.teamPosition.y, self.game.team.flagSpawnLocation.x, self.game.team.flagSpawnLocation.y)
-        self.dataset.addSample(inputField, (outputField))
+        #self.dataset.addSample(inputField, (outputField))
 #        try:
 #            trainer = BackpropTrainer(self.net, self.dataset)
 #            trainer.trainEpochs(epochs=100)
 #        except:
 #            pass
-        
-        fileObject = open('network', 'w')
-        pickle.dump(self.net, fileObject)
-        
-        fileObject = open('data', 'w')
-        pickle.dump(self.dataset, fileObject)
+#         
+#         fileObject = open('network', 'w')
+#         pickle.dump(self.net, fileObject)
+        print "shutting down and writing data"
+        fileObject = open('data.txt', 'a')
+        fileObject.write(str((inputField, (outputField))))
         Commander.shutdown(self)
