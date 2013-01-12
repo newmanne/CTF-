@@ -245,5 +245,5 @@ class FSMCommander(Commander):
 #         pickle.dump(self.net, fileObject)
         print "shutting down and writing data"
         with open('data.txt', 'a') as fileObject:
-			fileObject.write(str((inputField, (outputField))))
+			fileObject.write(str((inputField, (outputField)))+ '\n')
         Commander.shutdown(self)
