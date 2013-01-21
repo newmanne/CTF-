@@ -135,9 +135,10 @@ class Defend():
             events = self.squad.commander.game.match.combatEvents
             killingEvents = (event for event in events for deadDefender in self.getDeadDefenders() if event.subject == deadDefender.bot_info and event.type == MatchCombatEvent.TYPE_KILLED)
             for killingEvent in killingEvents:
-                newVector = killingEvent.instigator.position - killingEvent.subject.position
-                if all(areUniqueAngles(newVector, b[0], 15) for b in self.Vectors):
-                    self.Vectors.add((newVector, 1))
+                if killingEvent.instigator.position and killingEvent.subject.position:
+                    newVector = killingEvent.instigator.position - killingEvent.subject.position
+                    if all(areUniqueAngles(newVector, b[0], 15) for b in self.Vectors):
+                        self.Vectors.add((newVector, 1))
                     
         while len(self.Vectors) > max(len(self.bots) * 2, 3):
             self.Vectors.pop()
@@ -195,9 +196,10 @@ class Scout():
         if newKillingEvents:
             self.priorEvents = self.priorEvents.union(set(newKillingEvents))
             killingEvent = random.choice(newKillingEvents)
-            if not any(map(lambda x: inArea(x, killingEvent.instigator.position, 10), self.positions)):
-                self.positions.pop()
-                self.positions.append(killingEvent.instigator.position)
+            if killingEvent.instigator.position:
+                if not any(map(lambda x: inArea(x, killingEvent.instigator.position, 10), self.positions)):
+                    self.positions.pop()
+                    self.positions.append(killingEvent.instigator.position)
             return killingEvent.instigator
         else:
             return None

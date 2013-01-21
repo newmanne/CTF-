@@ -1,9 +1,8 @@
 from itertools import izip
 from math import floor, copysign
 from api import Vector2
-from util import inArea
-sign = lambda x: int(copysign(1, x))
 
+sign = lambda x: int(copysign(1, x))
 
 def canSee(A,B, width, height, isBlocked):
     delta = line(A, B, covering=False)
@@ -23,6 +22,7 @@ def canSee(A,B, width, height, isBlocked):
     except:
         return False       
     return True 
+
 
 def line(A, B, finite = True, covering = True):
     """
@@ -76,7 +76,7 @@ def line(A, B, finite = True, covering = True):
                     elif p+e > 1.0:
                         yield (x+sx, y)
 
-                y -= 1          # Step the coordinate to previous row.
+                y -= 1
 
             x += sx         # Take then next step with x.
 
@@ -107,7 +107,7 @@ def line(A, B, finite = True, covering = True):
                     elif p+e > 1.0:
                         yield (x+1, y)
 
-                x += 1          # Step the coordinate to next column.
+                x += 1          # Step the coordinate to next row.
 
             elif e < 0.0:   # Reached the previous row?
                 e += 1.0        # Re-adjust error accordingly.
@@ -118,15 +118,14 @@ def line(A, B, finite = True, covering = True):
                     elif p+e > 1.0:
                         yield (x, y+sy)
 
-                x -= 1          # Step coordinate to the previous column.
+                x -= 1
 
-            y += sy         # Go for another iteration with next Y.
-
+            y += sy
 
 
 class Wave(object):
     """
-        Visibility "wave" helper that can calculate all visible cells from a
+        Visibility wave helper that can calculate all visible cells from a
     single cell.  It starts from a specified point and "flood fills" cells that
     are visible in four different directions.  Each direction of the visibility
     wave is bounded by two lines, which are then rasterized in between.  If
@@ -140,60 +139,47 @@ class Wave(object):
         self.setVisible = setVisible
 
     def xwave_internal(self, p, upper, lower, direction):
-        """Propagate a visibility wave along one direction with X-major axis."""
-
         for (ux, uy), (lx, ly) in izip(upper, lower):
             assert ux == lx, "{} != {}".format(ux, lx)
             x = ux
-            # If the upper and lower bounds are switched, just swap them.
+            # FIXME: Caused by sub-pixel drift vs. reference borders.
             if uy > ly: uy, ly = ly, uy
 
-            # Check if the wave has stepped out of bounds.
             if x < 0: break
             if x >= self.width: break
 
             waves = []
             visible = []
             blocks = False
-
-            # Now iterate through all the pixels in this column.
             for y in range(max(uy, 0), min(ly+1, self.height)):
-
-                # If a free cell is encountered, store it for later.
-                if not self.isBlocked(x, y):
-                    visible.append((x, y))
-                    self.setVisible(x, y)
-                # If the cell is blocked, then we keep track of the entire span of cells.
-                else:
+                if self.isBlocked(x, y):
                     blocks = True
                     if visible:
                         waves.append(visible)
                         visible = []
                     else:
                         pass
-        
-            # Now we have a list of all the visible spans of cells, for sub-waves.
+                else:
+                    visible.append((x, y))
+                    self.setVisible(x, y)
+
             if visible:
                 waves.append(visible)
                 visible = []
 
-            # Split the wave into sub-waves if there were blocks.
             if blocks:
                 for i, w in enumerate(waves):
-                    # Calculate the coordinates of the start and end of the new wave.
+                    # TODO: Sub-pixel accurate cell collisions to be implemented here.
                     w0, wn = Vector2(w[0][0]+0.5, w[0][1]+0.5), Vector2(w[-1][0]+0.5, w[-1][1]+0.5)
                     u = w0 - p
                     l = wn - p
                     u = u / abs(u.x)
                     l = l / abs(l.x)
-
-                    # Adjustment for error case dy>dx is caused by sub-pixel drift.
+                    # NOTE: This adjustment for error case dy>dx is caused by sub-pixel drift.
                     if abs(u.y)>abs(u.x): u.y=abs(u.x)*sign(u.y)
                     if abs(l.y)>abs(l.x): l.y=abs(l.x)*sign(l.y)
                     w0 += u
                     wn += l
-
-                    # If this wave cell is the first or last, we use the exact same line equation.
                     if i>0 or w[0][1] > max(uy, 0):
                         uppr = line(w0, w0+u, finite = False, covering = False)
                     else:
@@ -202,8 +188,6 @@ class Wave(object):
                         lowr = line(wn, wn+l, finite = False, covering = False)
                     else:
                         lowr = lower
-
-                    # Now recursively handle this case, propagating the sub-wave further.
                     self.xwave_internal(p, uppr, lowr, direction)
                 return
 
@@ -212,6 +196,7 @@ class Wave(object):
             assert uy == ly, "{} != {}".format(uy, ly)
             y = uy
 
+            # FIXME: Caused by sub-pixel drift vs. reference borders.
             if ux > lx: ux, lx = lx, ux
 
             if y < 0: break
@@ -238,12 +223,13 @@ class Wave(object):
 
             if blocks:
                 for i, w in enumerate(waves):
+                    # TODO: Sub-pixel accurate cell collisions to be implemented here.
                     w0, wn = Vector2(w[0][0]+0.5, w[0][1]+0.5), Vector2(w[-1][0]+0.5, w[-1][1]+0.5)
                     u = w0 - p
                     l = wn - p
                     u = u / abs(u.y)
                     l = l / abs(l.y)
-
+                    # NOTE: This adjustment for error case dy>dx is caused by sub-pixel drift.
                     if abs(u.x)>abs(u.y): u.x=abs(u.y)*sign(u.x)
                     if abs(l.x)>abs(l.y): l.x=abs(l.y)*sign(l.x)
                     w0 += u
@@ -256,13 +242,10 @@ class Wave(object):
                         lowr = line(wn, wn+l, finite = False, covering = False)
                     else:
                         lowr = lower
-
                     self.ywave_internal(p, uppr, lowr, direction)
                 return
 
     def compute(self, p):
-        """Propagate four visibility waves, along X and Y both positive and negative."""
-
         if self.isBlocked(int(p.x), int(p.y)):
             return
 
@@ -272,17 +255,19 @@ class Wave(object):
 
         upper = line(p, p+Vector2(-0.5, -0.5), finite = False, covering = False)
         lower = line(p, p+Vector2(-0.5, +0.5), finite = False, covering = False)
-
-        upper.next(), lower.next()
-        self.xwave_internal(p, upper, lower, Vector2(-1.0, 0.0))
+        if int(p.x)-1 >= 0 and not self.isBlocked(int(p.x)-1, int(p.y)):
+            upper.next(), lower.next()
+            self.xwave_internal(p, upper, lower, Vector2(-1.0, 0.0))
 
         p0 = p + Vector2(0.0, -1.0)
         upper = line(p0, p0+Vector2(-0.5, -0.5), finite = False, covering = False)
         lower = line(p0, p0+Vector2(+0.5, -0.5), finite = False, covering = False)
-        self.ywave_internal(p, upper, lower, Vector2(0.0, -1.0))
+        if int(p.y)-1 >= 0 and not self.isBlocked(int(p.x), int(p.y)-1):
+            self.ywave_internal(p, upper, lower, Vector2(0.0, -1.0))
 
         p1 = p + Vector2(0.0, +1.0)
         upper = line(p1, p1+Vector2(-0.5, +0.5), finite = False, covering = False)
         lower = line(p1, p1+Vector2(+0.5, +0.5), finite = False, covering = False)
-        self.ywave_internal(p, upper, lower, Vector2(0.0, +1.0))
+        if int(p.y)+1 < self.height and not self.isBlocked(int(p.x), int(p.y)+1):
+            self.ywave_internal(p, upper, lower, Vector2(0.0, +1.0))
 

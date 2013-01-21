@@ -146,8 +146,8 @@ class FSMCommander(Commander):
     
     def findMinimumScorePosition(self):
         possiblePoints = self.getPossiblePoints(self.game.team.flag.position)
-        inputField = self.getBlockHeightsNearFlag().reshape(1,100)
-        inputField = tuple(tuple(x) for x in inputField)[0]       
+        inputField = numpy.array(self.level.blockHeights).reshape(1, self.level.width*self.level.height)
+        inputField = tuple(tuple(x) for x in inputField)[0]     
         value = sys.maxint
         position = None
         for point in possiblePoints:
@@ -157,33 +157,28 @@ class FSMCommander(Commander):
         return position
     
     def initialize(self):
-#         try:
-# #             fileObject = open('network','r')
-# #             self.net = pickle.load(fileObject)
-#             fileObject = open('data','r')
-#             self.dataset = pickle.load(fileObject)
-#             print "Found previous network"
-#             teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
-#             
-#         except:
-#             self.net = FeedForwardNetwork()
-#             inputLayer = LinearLayer(self.level.width*self.level.height + 4)
-#             hiddenLayer = SigmoidLayer(66)
-#             outLayer = LinearLayer(1)
-#             self.net.addInputModule(inputLayer)
-#             self.net.addModule(hiddenLayer)
-#             self.net.addOutputModule(outLayer)
-#             in_to_hidden = FullConnection(inputLayer, hiddenLayer)
-#             hidden_to_out = FullConnection(hiddenLayer, outLayer)
-#             self.net.addConnection(in_to_hidden)
-#             self.net.addConnection(hidden_to_out)
-#             self.net.sortModules()
-#             self.dataset = SupervisedDataSet(self.level.width*self.level.height + 4, 1)
-#             print "Didn't find previous network"
-#             teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
-#             
-#        teamPosition = self.findMinimumScorePosition()
-        teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
+        try:
+            fileObject = open('network','r')
+            self.net = pickle.load(fileObject)
+            print "Found previous network"
+            teamPosition = self.findMinimumScorePosition()             
+        except:
+            self.net = FeedForwardNetwork()
+            inputLayer = LinearLayer(self.level.width*self.level.height + 4)
+            hiddenLayer = SigmoidLayer(66)
+            outLayer = LinearLayer(1)
+            self.net.addInputModule(inputLayer)
+            self.net.addModule(hiddenLayer)
+            self.net.addOutputModule(outLayer)
+            in_to_hidden = FullConnection(inputLayer, hiddenLayer)
+            hidden_to_out = FullConnection(hiddenLayer, outLayer)
+            self.net.addConnection(in_to_hidden)
+            self.net.addConnection(hidden_to_out)
+            self.net.sortModules()
+            self.dataset = SupervisedDataSet(self.level.width*self.level.height + 4, 1)
+            print "Didn't find previous network"
+            teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
+        
         setupGraphs(self) # inits self.graph
         self.verbose = True
         self.bots = set()
@@ -202,22 +197,22 @@ class FSMCommander(Commander):
             bot = Bot(bot_info, self)
             if i < self.numOfDefenders:                
                 self.defenders.append(bot)
-#            elif self.numOfDefenders <= i < self.numOfFlagGetters + self.numOfDefenders:
-#                self.flagGetters.append(bot)
-#            elif i %3 == 0 or len(self.attackers) < 2:
-#                self.attackers.append(bot)
-#            elif i %3 == 1:
-#                self.defenders.append(bot)
-#            else:
-#                self.flagGetters.append(bot)
+            elif self.numOfDefenders <= i < self.numOfFlagGetters + self.numOfDefenders:
+                self.flagGetters.append(bot)
+            elif i %3 == 0 or len(self.attackers) < 2:
+                self.attackers.append(bot)
+            elif i %3 == 1:
+                self.defenders.append(bot)
+            else:
+                self.flagGetters.append(bot)
                 
         #TODO: priority decided based on distance
         teamPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
         self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=teamPriority, graph=self.graph, dirs=teamDirs), commander=self)
-#        enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
-#        self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[(self.game.enemyTeam.flagScoreLocation - enemyPosition, 1)]), commander=self)
-#        self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
-        self.squads = [self.defendingGroup]
+        enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
+        self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[(self.game.enemyTeam.flagScoreLocation - enemyPosition, 1)]), commander=self)
+        self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
+        self.squads = [self.defendingGroup, self.attackingGroup, self.flagGroup]
     
     def getBlockHeightsNearFlag(self):
         flag = self.game.team.flagSpawnLocation
