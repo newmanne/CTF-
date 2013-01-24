@@ -28,18 +28,19 @@ class GlobalState(State):
     
 class DefendingSomething(State):
     
-    def __init__(self, bot, position, priority =0):
+    def __init__(self, bot, position, priority =0, ticks=None):
         self.bot = bot
         self.position = position
+        self.counter = ticks
         
     def execute(self):
-        aliveEnemies = [enemy for enemy in self.bot.visibleEnemies if enemy.health > 0]
-        if aliveEnemies:
-            if any(map(lambda x: inVOF(self.bot, x, self.bot.commander.level.fieldOfViewAngles[2]), aliveEnemies)):
-                self.bot.changeState(DefendingAgainst(self.bot, self.bot.getClosestEnemy()))
         if self.bot.defenceTrigger == 1:
             self.bot.defenceTrigger = 0
             self.bot.commander.issue(commands.Defend, self.bot, facingDirection =self.bot.defending_direction, description="Defending Position")
+        if self.counter:
+            self.counter-=1
+            if self.counter <= 0:
+                self.bot.commander.issue(commands.Attack, self.bot, self.bot.position, description="Defending Position")
             
     def enter(self):
         self.bot.commander.issue(commands.Defend, self.bot, facingDirection = self.bot.defending_direction, description="Defending Position")

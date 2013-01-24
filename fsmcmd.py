@@ -16,6 +16,8 @@ from pybrain.structure import LinearLayer, SigmoidLayer
 from pybrain.structure import FullConnection
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import BackpropTrainer
+#from pybrain.tools.xml.networkreader import NetworkReader
+
 
 import pickle
 
@@ -30,6 +32,7 @@ from util import distance
 from visibility import *
 from graph import setupGraphs
 import sys
+import os
 
 
 class FSMCommander(Commander):
@@ -114,6 +117,51 @@ class FSMCommander(Commander):
         else:
             return position, (0,0)
         
+    def getMostSecurePositions(self,secLoc):
+        levelSize = (self.level.width, self.level.height)
+        width, height = levelSize
+        potPosits = [[0 for y in xrange(height)] for x in xrange(width)]
+        neighbors = getVonNeumannNeighborhood((int(secLoc.x), int(secLoc.y)), self.level.blockHeights, int(self.level.firingDistance)+2)
+        securePositions = []
+        
+        for n in neighbors:
+            # use raycasting to test whether or not this position can see the flag
+            # if it can't, automatically set it to 0
+            x,y = n
+
+            if self.level.blockHeights[x][y] >= 2:
+                potPosits[x][y] = 50
+            else:
+                potPosits[x][y] = 255
+                
+            if potPosits[x][y] == 255:
+                numWallCells = numAdjCoverBlocks(n, self.level.blockHeights)
+                numWallCells += numAdjMapWalls(n, levelSize)
+                #print numWallCells
+                if numWallCells == 0:
+                    potPosits[x][y] = 128
+                if potPosits[x][y] == 255:
+                    # make sure they have LOS with the flag
+                    goodLOS = True
+                    lookVec = Vector2(x+0.5,y+0.5) - (secLoc + Vector2(.5,.5))
+                    lookVecNorm = lookVec.normalized()
+                    vecInc = .1
+                    while vecInc < lookVec.length():
+                        testPos = secLoc + lookVecNorm * vecInc
+                        #print str(testPos)
+                        if self.level.blockHeights[int(testPos.x)][int(testPos.y)] >= 2:
+                            goodLOS = False
+                            break
+                        vecInc += .1
+                    if not goodLOS:
+                        potPosits[x][y] = 128
+                    else:
+                        securePositions.append(n)
+        #createPngFromMatrix(potPosits, levelSize)
+        
+        return sorted(securePositions, key = lambda p: numAdjMapWalls(p, levelSize)*4 + numAdjCoverBlocksWeighted(p, self) + distance(Vector2(p[0],p[1]), secLoc)/self.level.firingDistance, reverse = True)
+                            
+        
     def getPossiblePoints(self, position):
         rangeOf = list(range(-10, 11)) + list(range(-10, 11))            
         rangeOf = [x for x in rangeOf if x != 0]            
@@ -157,27 +205,28 @@ class FSMCommander(Commander):
         return position
     
     def initialize(self):
-        try:
-            fileObject = open('network','r')
-            self.net = pickle.load(fileObject)
-            print "Found previous network"
-            teamPosition = self.findMinimumScorePosition()             
-        except:
-            self.net = FeedForwardNetwork()
-            inputLayer = LinearLayer(self.level.width*self.level.height + 4)
-            hiddenLayer = SigmoidLayer(66)
-            outLayer = LinearLayer(1)
-            self.net.addInputModule(inputLayer)
-            self.net.addModule(hiddenLayer)
-            self.net.addOutputModule(outLayer)
-            in_to_hidden = FullConnection(inputLayer, hiddenLayer)
-            hidden_to_out = FullConnection(hiddenLayer, outLayer)
-            self.net.addConnection(in_to_hidden)
-            self.net.addConnection(hidden_to_out)
-            self.net.sortModules()
-            self.dataset = SupervisedDataSet(self.level.width*self.level.height + 4, 1)
-            print "Didn't find previous network"
-            teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
+        #try:
+            #print os.path.dirname(os.path.realpath(__file__))
+            #fileObject = open(os.path.dirname(os.path.realpath(__file__)) + '/network.xml','r')
+            #print "Found net"
+            #self.net = NetworkReader.readFrom(fileObject) 
+            #teamPosition = self.findMinimumScorePosition()             
+        #except:
+            #print "didn't find net"
+            #self.net = FeedForwardNetwork()
+            #inputLayer = LinearLayer(self.level.width*self.level.height + 4)
+            #hiddenLayer = SigmoidLayer(66)
+            #outLayer = LinearLayer(1)
+            #self.net.addInputModule(inputLayer)
+            #self.net.addModule(hiddenLayer)
+            #self.net.addOutputModule(outLayer)
+            #in_to_hidden = FullConnection(inputLayer, hiddenLayer)
+            #hidden_to_out = FullConnection(hiddenLayer, outLayer)
+            #self.net.addConnection(in_to_hidden)
+            #self.net.addConnection(hidden_to_out)
+            #self.net.sortModules()
+            #self.dataset = SupervisedDataSet(self.level.width*self.level.height + 4, 1)
+            #teamPosition = random.choice(self.getPossiblePoints(self.game.team.flag.position))
         
         setupGraphs(self) # inits self.graph
         self.verbose = True
@@ -187,12 +236,23 @@ class FSMCommander(Commander):
         self.flagGetters = []
         self.scouts = []
         isTeamCorner = (0,0)        
-        self.teamPosition = teamPosition
         
-        teamDirs = self.getDefendingDirs(teamPosition)
+        
+        try:
+            position = self.getMostSecurePositions(self.game.team.flag.position).pop()
+            teamPosition = Vector2(position[0], position[1])
+        except:
+            teamPosition = self.getStrategicPostion(self.game.team.flag.position)
+        #teamDirs = self.getDefendingDirs(teamPosition)
+        self.teamPosition = teamPosition
         enemyPosition, isEnemyCorner = self.getStrategicPostion(self.game.enemyTeam.flagScoreLocation)
-        enemyPosition = self.level.findNearestFreePosition(enemyPosition)
-        enemyDirs = self.getDefendingDirs(enemyPosition)
+        
+        try:
+            position = self.getMostSecurePositions(self.game.enemyTeam.flagScoreLocation).pop()
+            enemyPosition = Vector2(position[0], position[1])
+        except:
+            enemyPosition = self.getStrategicPostion(self.game.enemyTeam.flagScoreLocation)
+        #enemyDirs = self.getDefendingDirs(enemyPosition)
         for i, bot_info in enumerate(self.game.bots_available):
             bot = Bot(bot_info, self)
             if i < self.numOfDefenders:                
@@ -208,10 +268,10 @@ class FSMCommander(Commander):
                 
         #TODO: priority decided based on distance
         teamPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
-        self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=teamPriority, graph=self.graph, dirs=teamDirs), commander=self)
+        self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=teamPriority, graph=self.graph, dirs=[(self.game.team.flagSpawnLocation - teamPosition, 1)]), commander=self)
         enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
         self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=enemyPriority, graph=self.graph, dirs=[(self.game.enemyTeam.flagScoreLocation - enemyPosition, 1)]), commander=self)
-        self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph))
+        self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph), commander=self)
         self.squads = [self.defendingGroup, self.attackingGroup, self.flagGroup]
     
     def getBlockHeightsNearFlag(self):
@@ -225,20 +285,19 @@ class FSMCommander(Commander):
         
         
     def shutdown(self):
-        outputField = (self.game.match.scores[self.game.enemyTeam.name])
-        inputField = numpy.array(self.level.blockHeights).reshape(1, self.level.width*self.level.height)
-        inputField = tuple(tuple(x) for x in inputField)[0]
-        inputField = inputField + (self.teamPosition.x,  self.teamPosition.y, self.game.team.flagSpawnLocation.x, self.game.team.flagSpawnLocation.y)
-        #self.dataset.addSample(inputField, (outputField))
-#        try:
-#            trainer = BackpropTrainer(self.net, self.dataset)
-#            trainer.trainEpochs(epochs=100)
-#        except:
-#            pass
-#         
-#         fileObject = open('network', 'w')
-#         pickle.dump(self.net, fileObject)
-        print "shutting down and writing data"
-        with open('data.txt', 'a') as fileObject:
-			fileObject.write(str((inputField, (outputField)))+ '\n')
+#        outputField = (self.game.match.scores[self.game.enemyTeam.name])
+#        inputField = numpy.array(self.level.blockHeights).reshape(1, self.level.width*self.level.height)
+#        inputField = tuple(tuple(x) for x in inputField)[0]
+#        inputField = inputField + (self.teamPosition.x,  self.teamPosition.y, self.game.team.flagSpawnLocation.x, self.game.team.flagSpawnLocation.y)
+#        #self.dataset.addSample(inputField, (outputField))
+##        try:
+##            trainer = BackpropTrainer(self.net, self.dataset)
+##            trainer.trainEpochs(epochs=100)
+##        except:
+##            pass
+##         
+##         fileObject = open('network', 'w')
+##         pickle.dump(self.net, fileObject)
+#        with open('data.txt', 'a') as fileObject:
+#			fileObject.write(str((inputField, (outputField)))+ '\n')
         Commander.shutdown(self)

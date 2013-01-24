@@ -377,7 +377,6 @@ def createPngFromBlockTuples(tupleList, levelSize, name='pngtest.png'): # where 
     width, height = levelSize
     pngList = [[0 for y in xrange(height)] for x in xrange(width)]
     for t in tupleList: # I could probably use list comprehensions here
-        print str(t)
         x,y = t
         column = pngList[y]
         column[x] = 255

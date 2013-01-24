@@ -6,6 +6,7 @@ from pybrain.supervised.trainers import BackpropTrainer
 import ast
 import pickle
 import numpy
+import neat
 
 from numpy import linalg
 
