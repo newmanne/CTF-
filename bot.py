@@ -29,9 +29,12 @@ class Bot():
         self.initalState = None
         
     def getClosestEnemy(self):
-        aliveEnemies = filter(lambda x: x.health > 0, self.bot_info.visibleEnemies)
-        return min(aliveEnemies, key=lambda enemy: distanceBetween(enemy, self.bot_info))
-    
+        try:
+            return min(self.bot_info.visibleEnemies, key=lambda enemy: distanceBetween(enemy, self.bot_info))
+        except:
+            return None
+        
+        
     def update(self):
         if not self.currState and self.health > 0:
             self.currState = self.initalState
@@ -68,13 +71,14 @@ class Goal():
     DEFEND = 1
     PATROL = 2
     GETFLAG = 3
-    def __init__(self, objective, position, isCorner, priority = 0, graph=None, dirs = None):
+    def __init__(self, objective, position, isCorner, priority = 0, graph=None, dirs = None, safeLoc=None):
         self.objective = objective
         self.position = position
         self.isCorner = isCorner
         self.priority = priority
         self.graph = graph
         self.dirs = dirs
+        self.safeLoc = safeLoc
         
 class Squad():
     def __init__(self,bots, goal, commander=None):
@@ -88,7 +92,7 @@ class Squad():
         elif (self.goal.objective == Goal.PATROL):
             self.initalState = Scout(self, goal.position)            
         elif (self.goal.objective == Goal.GETFLAG):
-            self.initalState = GetFlag(self, goal.graph)
+            self.initalState = GetFlag(self, goal.graph, goal.safeLoc, goal.dirs)
         else:
             raise ValueError
         self.currState = None

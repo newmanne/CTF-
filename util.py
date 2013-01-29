@@ -1,6 +1,19 @@
 import math
 from api import Vector2
 
+def unblockedDistInDir(startPos, direction, commander):
+    testPos = startPos
+    while withinLevelBounds(testPos, (commander.level.width, commander.level.height)):
+        if commander.level.blockHeights[int(testPos.x)][int(testPos.y)] < 2:
+            testPos = testPos + direction/2
+        else:
+            break
+
+    return distance(startPos, testPos)
+
+def withinLevelBounds(pos, levelSize):
+    return pos.x >= 0 and pos.y >= 0 and pos.x < levelSize[0] and pos.y < levelSize[1]
+
 def getVonNeumannNeighborhood(cell, cells, r): # where cell is a tuple, cells is a 2D list, and r is the range
     newCells = [] # list of tuples
     for x, cx in enumerate(cells):

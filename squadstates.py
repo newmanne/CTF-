@@ -28,8 +28,30 @@ class Sneaky():
                     orderPath = path[::4]
                     orderPath.append(path[-1]) # take every 10th point including last point
                     self.paths[bot] = orderPath    # store the path for visualization
-        except:
+        except Exception as e:
             self.paths[bot] = position
+            
+    def updateDeadBots(self):
+        self.deadBots = set(filter(lambda x: x.health <= 0, self.deadBots))
+        newDeadBots = set(filter(lambda x: x.health <= 0 and x not in self.deadBots, self.bots))
+        self.deadBots= self.deadBots.union(newDeadBots)
+        for bot in newDeadBots:
+            node = Vector2(int(bot.position.x), int(bot.position.y))
+            self.updateWeights(node, 5)
+        self.squad.commander.originalGraph = self.squad.commander.graph
+    
+    def updateWeights(self, node, distance):
+        weightAdded = 255
+        if distance > 0:
+            for i,j in [(1,0), (0,1), (-1,0), (0,-1)]:
+                if self.squad.commander.inZone(node + Vector2(i, j)):
+                    try:
+                        if self.squad.commander.graph.has_edge(self.squad.commander.terrain[int(node.y)][int(node.x)], self.squad.commander.terrain[int(node.y+j)][int(node.x+i)]):
+                            # we added this one before, just increase the weight by one
+                            self.squad.commander.graph[self.squad.commander.terrain[int(node.y)][int(node.x)]][self.squad.commander.terrain[int(node.y+j)][int(node.x+i)]]['weight'] += weightAdded
+                            self.updateWeights(Vector2(int(node.x+i), int(node.y+j)), distance - 1)
+                    except:
+                        pass
        
 class Attack(Sneaky):
     def __init__(self, squad, position, isCorner, priority, graph):
@@ -41,30 +63,8 @@ class Attack(Sneaky):
         self.graph = graph
         self.paths = {}
         self.deadBots = set()
-        self.arrivedBots = set()
-        
-        
-        
-    def updateDeadBots(self):
-        self.deadBots = set(filter(lambda x: x.health <= 0, self.deadBots))
-        newDeadBots = set(filter(lambda x: x.health <= 0 and x not in self.deadBots, self.bots))
-        self.deadBots= self.deadBots.union(newDeadBots)
-        for bot in newDeadBots:
-            node = Vector2(int(bot.position.x), int(bot.position.y))
-            self.updateWeights(node, 5)
+        self.arrivedBots = set()   
     
-    def updateWeights(self, node, distance):
-        weightAdded = 50
-        if distance > 0:
-            for i,j in [(1,0), (0,1), (-1,0), (0,-1)]:
-                if self.squad.commander.inZone(node + Vector2(i, j)):
-                    try:
-                        if self.squad.commander.graph.has_edge(self.squad.commander.terrain[int(node.x)][int(node.y)], self.squad.commander.terrain[int(node.x+i)][int(node.y+j)]):
-                            # we added this one before, just increase the weight by one
-                            self.squad.commander.graph[self.squad.commander.terrain[int(node.x)][int(node.y)]][self.squad.commander.terrain[int(node.x+i)][int(node.y+j)]]['weight'] += weightAdded
-                            self.updateWeights(Vector2(int(node.x+i), int(node.y+j)), distance - 1)
-                    except:
-                        pass
     
     def execute(self):
         self.updateDeadBots()
@@ -89,13 +89,19 @@ class Attack(Sneaky):
                     toBeRemoved = bot
                 else:
                     self.sneak(bot, self.position)
-                    bot.changeState(ChargePosition(bot, self.paths[bot]))
+                    if not bot.visibleEnemies:
+                        bot.changeState(ChargePosition(bot, self.paths[bot]))
+                    else:
+                        bot.changeState(AttackPostition(bot, self.paths[bot], lookAt=bot.getClosestEnemy().position))
         else:
             idleBots = (bot for bot in self.bots if bot.state == BotInfo.STATE_IDLE and not inArea(bot.position, self.position))
             for bot in idleBots:
                 if self.priority == 0:
                     self.sneak(bot, self.position)
-                    bot.changeState(ChargePosition(bot, self.paths[bot]))
+                    if not bot.visibleEnemies:
+                        bot.changeState(ChargePosition(bot, self.paths[bot]))
+                    else:
+                        bot.changeState(AttackPostition(bot, self.paths[bot], lookAt=bot.getClosestEnemy().position))
                 else:
                     bot.changeState(ChargePosition(bot, bot.commander.level.findNearestFreePosition(self.position)))
             for bot in self.bots:
@@ -107,7 +113,10 @@ class Attack(Sneaky):
         for bot in self.bots:
             if self.priority == 0:
                 self.sneak(bot, self.position)
-                bot.changeState(ChargePosition(bot, self.paths[bot]))
+                if not bot.visibleEnemies:
+                    bot.changeState(ChargePosition(bot, self.paths[bot]))
+                else:
+                    bot.changeState(AttackPostition(bot, self.paths[bot], lookAt=bot.getClosestEnemy().position))
             else:
                 bot.changeState(ChargePosition(bot, bot.commander.level.findNearestFreePosition(self.position)))
     
@@ -134,7 +143,10 @@ class Defend():
         if self.Vectors:
             splitVectors = list(chunks(list(self.Vectors), min(len(defenders), len(self.Vectors))))
             for i, bot in enumerate(defenders):
-                bot.defending_direction = splitVectors[(i+1)%len(splitVectors)]
+                if len(splitVectors[(i+1)%len(splitVectors)]) < 2:
+                    bot.defending_direction = splitVectors[(i+1)%len(splitVectors)]
+                else:
+                    bot.defending_direction = splitVectors[(i+1)%len(splitVectors)][:2]
             
     def getAliveDefenders(self):
         return filter(lambda x: x.health > 0, self.bots)
@@ -158,19 +170,29 @@ class Defend():
                     if all(areUniqueAngles(newVector, b[0], 15) for b in self.Vectors):
                         self.Vectors.add((newVector, 1))
                     
-        while len(self.Vectors) > len(self.bots) * 2:
+        while len(self.Vectors) > 4:
             self.Vectors.pop()
+        
     
     def execute(self):
+        toBeRemoved = None
         for defender in self.bots:
             if not inArea(defender.position, self.position):
                 self.squad.changeState(Attack(self.squad, self.position, self.isCorner, self.priority, self.graph))
                 return
+            if defender.flag:
+                toBeRemoved = defender
+                
+        if toBeRemoved:
+            self.bots.remove(toBeRemoved)
+            
         aliveDefenders = [defender for defender in self.bots if defender.health > 0]
         if len(aliveDefenders) != self.numAliveDefenders:
             self.updateDefendingDirections(aliveDefenders)
             self.numAliveDefenders = len(aliveDefenders)
             self.reAssignRoles()
+            
+        
         for defender in self.bots:
             defender.update()
         
@@ -258,25 +280,42 @@ class Scout():
         pass
     
 class GetFlag(Sneaky):
-    def __init__(self, squad, graph):
+    def __init__(self, squad, graph, safeLocNearEnemyFlag, dirs):
         self.squad = squad
         self.bots = squad.bots
         self.flagBearer = None
         self.weHaveFlag = False
         self.graph = graph
         self.paths = {}
+        self.deadBots = set()
+        self.hiddingPlace = safeLocNearEnemyFlag
+        self.dirs = dirs
     
     def enter(self):
         for bot in self.bots:
             self.sneak(bot, bot.commander.game.enemyTeam.flag.position)
-            bot.changeState(ChargePosition(bot, self.paths[bot]))
+            if not bot.visibleEnemies:
+                bot.changeState(ChargePosition(bot, self.paths[bot]))
+            else:
+                bot.changeState(AttackPostition(bot, self.paths[bot], lookAt=bot.getClosestEnemy().position))
     
     def execute(self):
-
+        self.updateDeadBots()
+        prevFlag = self.weHaveFlag
         self.weHaveFlag = any(map(lambda x: x.flag, self.bots))
-        if not self.weHaveFlag:
+        if not self.weHaveFlag or prevFlag != self.weHaveFlag:
             self.flagBearer = None
-        for bot in self.bots:
+        if prevFlag != self.weHaveFlag:
+            for i, bot in enumerate(self.bots):
+                self.sneak(bot, bot.commander.game.enemyTeam.flag.position)
+                if not bot.visibleEnemies:
+                    bot.changeState(ChargePosition(bot, self.paths[bot]))
+                else:
+                    bot.changeState(AttackPostition(bot, self.paths[bot], lookAt=bot.getClosestEnemy().position))
+            return
+            
+        
+        for i, bot in enumerate(self.bots):
             if bot.state == BotInfo.STATE_IDLE or (not self.flagBearer and self.weHaveFlag and bot.flag):
                 if self.weHaveFlag:
                     if bot.flag:
