@@ -95,7 +95,7 @@ class FSMCommander(Commander):
         else:
             return self.level.height - position.y < self.edgeDistance or position.y < self.edgeDistance
         
-    
+    @timeout(3, None)
     def getStrategicPostion(self, position):
         minimum = sys.maxint
         index = Vector2(0,0)

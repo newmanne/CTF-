@@ -1,5 +1,32 @@
 import math
 from api import Vector2
+import signal
+import time
+
+class TimeoutException(Exception): 
+    pass 
+ 
+def timeout(timeout_time, default):
+    def timeout_function(f):
+        def f2(*args):
+            def timeout_handler(signum, frame):
+                raise TimeoutException()
+ 
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler) 
+            signal.alarm(timeout_time) # triger alarm in timeout_time seconds
+            try:
+                t1 = time.time()
+                retval = f(args[0], args[1])
+                print (time.time() -t1) , "seconds"
+            except TimeoutException:
+                print "ran out of time"
+                return args[0], (0, 0)
+            finally:
+                signal.signal(signal.SIGALRM, old_handler) 
+            signal.alarm(0)
+            return retval
+        return f2
+    return timeout_function
 
 def unblockedDistInDir(startPos, direction, commander):
     testPos = startPos
