@@ -9,6 +9,28 @@ import networkx as nx
 from api.gameinfo import BotInfo, MatchCombatEvent
 import itertools
 
+class SquadState():    
+    def execute(self):
+        if self.squad.bots:
+            events = self.squad.commander.game.match.combatEvents
+            events = [event for event in events if event not in self.squad.commander.events]            
+            killingEvents = [event for event in events if event.type == MatchCombatEvent.TYPE_KILLED]
+            for event in killingEvents:
+                if event.instigator == self.squad.bots[0].bot_info:
+                    self.squad.bots[0].score+=1
+                    self.squad.commander.events.add(event)
+                elif event.subject == self.squad.bots[0].bot_info:
+                    self.squad.bots[0].score-=5
+                    self.squad.commander.events.add(event)
+            flagEvents = [event for event in events if event.type == MatchCombatEvent.TYPE_FLAG_CAPTURED or event.type == MatchCombatEvent.TYPE_FLAG_PICKEDUP]
+            for event in flagEvents:
+                if event.instigator == self.squad.bots[0].bot_info:
+                    self.squad.commander.events.add(event)
+                    if event.type == MatchCombatEvent.TYPE_FLAG_CAPTURED:
+                        self.squad.bots[0].score+=10                       
+                    else:
+                        self.squad.bots[0].score+=5
+                
 class Sneaky():
     def getNodeIndex(self, position):
         i = int(position.x)
@@ -53,7 +75,7 @@ class Sneaky():
                     except:
                         pass
        
-class Attack(Sneaky):
+class Attack(Sneaky, SquadState):
     def __init__(self, squad, position, isCorner, priority, graph):
         self.squad = squad
         self.bots = squad.bots
@@ -67,6 +89,7 @@ class Attack(Sneaky):
     
     
     def execute(self):
+        SquadState.execute(self)
         self.updateDeadBots()
         arrivedBots = (inArea(bot.position, self.position) for bot in self.bots)
         if all(arrivedBots):
@@ -123,7 +146,7 @@ class Attack(Sneaky):
     def exit(self):
         pass
 
-class Defend():
+class Defend(SquadState):
         
     def __init__(self, squad,  position, isCorner,priority, graph, defDirs):
         self.position = position
@@ -175,6 +198,7 @@ class Defend():
         
     
     def execute(self):
+        SquadState.execute(self)
         toBeRemoved = None
         for defender in self.bots:
             if not inArea(defender.position, self.position):
@@ -279,7 +303,7 @@ class Scout():
     def exit(self):
         pass
     
-class GetFlag(Sneaky):
+class GetFlag(Sneaky, SquadState):
     def __init__(self, squad, graph, safeLocNearEnemyFlag, dirs):
         self.squad = squad
         self.bots = squad.bots
@@ -300,6 +324,7 @@ class GetFlag(Sneaky):
                 bot.changeState(AttackPostition(bot, self.paths[bot], lookAt=bot.getClosestEnemy().position))
     
     def execute(self):
+        SquadState.execute(self)
         self.updateDeadBots()
         prevFlag = self.weHaveFlag
         self.weHaveFlag = any(map(lambda x: x.flag, self.bots))

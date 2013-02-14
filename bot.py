@@ -8,7 +8,7 @@ from squadstates import *
 class Bot():
     ROLE_MOVING = 1
     ROLE_DEFENDING = 2
-    
+    score = 0
     def __init__(self, bot_info, commander=None):
         self.bot_info = bot_info
         self.enemy_targeting = None
@@ -36,6 +36,7 @@ class Bot():
         
         
     def update(self):
+        self.globalState.execute()
         if not self.currState and self.health > 0:
             self.currState = self.initalState
             self.currState.enter()

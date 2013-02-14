@@ -2,7 +2,7 @@ from api import commands, vector2
 from api import Commander
 from util import *
 
-from api.gameinfo import BotInfo
+from api.gameinfo import BotInfo, MatchCombatEvent
 
 
 class State(object):
@@ -23,7 +23,30 @@ class State(object):
         pass
     
 class GlobalState(State):
-    pass
+    
+    def __init__(self, bot):
+        self.bot = bot
+        
+    def execute(self):
+        if self.bot:
+            events = self.bot.commander.game.match.combatEvents
+            events = [event for event in events if event not in self.bot.commander.events]            
+            killingEvents = [event for event in events if event.type == MatchCombatEvent.TYPE_KILLED]
+            for event in killingEvents:
+                if event.instigator == self.bot.bot_info:
+                    self.bot.score+=5
+                    self.bot.commander.events.add(event)
+                elif event.subject == self.bot.bot_info:
+                    self.bot.score-=10
+                    self.bot.commander.events.add(event)
+            flagEvents = [event for event in events if event.type == MatchCombatEvent.TYPE_FLAG_CAPTURED or event.type == MatchCombatEvent.TYPE_FLAG_PICKEDUP]
+            for event in flagEvents:
+                if event.instigator == self.bot.bot_info:
+                    self.bot.commander.events.add(event)
+                    if event.type == MatchCombatEvent.TYPE_FLAG_CAPTURED:
+                        self.bot.score+=200                       
+                    else:
+                        self.bot.score+=100
 
     
 class DefendingSomething(State):

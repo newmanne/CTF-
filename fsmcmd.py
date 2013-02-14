@@ -37,10 +37,10 @@ import os
 
 class FSMCommander(Commander):
     numOfAttackers = 2
-    numOfDefenders = 1
+    numOfDefenders = 2
     numOfFlagGetters = 2
     edgeDistance = 10
-    
+    events = set()
     def reassign(self, toGroup, fromGroup, number):
         for _ in range(number):
             bot = fromGroup.getRandomBot()
@@ -86,6 +86,14 @@ class FSMCommander(Commander):
             
     def tick(self):
         #self.updateGraph()
+        squads = self.squads
+        for botInst in self.mapBotInstructions:
+            for squad in squads:
+                if squad.bots:
+                    if botInst[1].state == BotInfo.STATE_IDLE and squad.bots[0] == botInst[1]:
+                        self.squads.remove(squad)
+                        newSquad = self.assignSquads(botInst)
+                        self.squads.append(newSquad)
         for squad in self.squads:
             squad.update()
             
@@ -248,10 +256,9 @@ class FSMCommander(Commander):
         self.flagGetters = []
         self.scouts = []
         isTeamCorner = (0,0)        
-        
+        self.oldFlagPosition = self.game.team.flag.position
         try:
             positions = self.getMostSecurePositions(self.game.team.flag.position)
-            teamPositions = map(lambda x: Vector2(x[0], x[1]), positions)
             position = positions.pop()
             teamPosition = self.level.findNearestFreePosition(Vector2(position[0], position[1]))            
         except:
@@ -263,7 +270,6 @@ class FSMCommander(Commander):
         
         try:
             positions = self.getMostSecurePositions(self.game.enemyTeam.flagScoreLocation)
-            enemyPositions = map(lambda x: Vector2(x[0], x[1]), positions)
             position = positions.pop()
             enemyPosition = self.level.findNearestFreePosition(Vector2(position[0], position[1]))
         except:
@@ -278,36 +284,60 @@ class FSMCommander(Commander):
             safeLocation, _ = self.getStrategicPostion(self.game.enemyTeam.flagSpawnLocation)
         safeLocationDirs = self.filterInvalidDirs(safeLocation)
         
-        teamFlagCloser = len(nx.shortest_path(self.graph, self.getNodeIndex(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea)), 
-                                              self.getNodeIndex(self.game.team.flagSpawnLocation), 'weight')) < len(nx.shortest_path(self.graph,
-                                              self.getNodeIndex(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea)), 
-                                              self.getNodeIndex(self.game.enemyTeam.flagScoreLocation), 'weight'))
-        
         for i, bot_info in enumerate(self.game.bots_available):
             bot = Bot(bot_info, self)
-#            if i < self.numOfDefenders:                
-#                self.defenders.append(bot)
-#            elif self.numOfDefenders <= i < self.numOfFlagGetters + self.numOfDefenders:
-#                self.flagGetters.append(bot)
-#            elif i%2 == 0 or len(self.attackers) < 2:
-#                if len(self.attackers) < 2 or teamFlagCloser:
-#                    self.attackers.append(bot)
-#                else:
-            if i%2==0:
-                self.attackers.append(bot)
-            else:
-                self.flagGetters.append(bot)
-        
-        #TODO: priority decided based on distance
-#        teamPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), teamPosition) < 25 else 0
-        self.defendingGroup = Squad(self.defenders, Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=0, graph=self.graph, dirs=teamDirs[:min(len(self.defenders)*2, len(teamDirs))]), commander=self)
-#        enemyPriority = 1 if distance(self.level.findRandomFreePositionInBox(self.game.team.botSpawnArea), enemyPosition) < 25 else 0
-        self.attackingGroup = Squad(self.attackers, Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=0, graph=self.graph, dirs=enemyDirs[:min(len(self.attackers)*2, len(enemyDirs))]), commander=self)
-        
-        
-        self.flagGroup = Squad(self.flagGetters, Goal(Goal.GETFLAG, None, None, graph=self.graph, safeLoc=safeLocation, dirs=safeLocationDirs[:2]), commander=self)
-        self.squads = [self.defendingGroup, self.attackingGroup, self.flagGroup]
+            self.bots.add(bot)
+        try:
+            self.readInstructions()
+        except Exception as e:
+            print e
+        self.mapBotInstructions = map(lambda x: (self.generateRandomInstructions(x[0]), x[1], 0), enumerate(self.bots))
+        self.squads = []
+        self.possibleGoals = [Goal(Goal.DEFEND, teamPosition, isTeamCorner, priority=0, graph=self.graph, dirs=teamDirs),
+                              Goal(Goal.DEFEND, enemyPosition, isEnemyCorner, priority=0, graph=self.graph, dirs=enemyDirs),
+                              Goal(Goal.GETFLAG, None, None, graph=self.graph, safeLoc=safeLocation, dirs=safeLocationDirs[:2])]
+        for botInst in self.mapBotInstructions:
+            squad = self.assignSquads(botInst)
+            self.squads.append(squad)
+            
+    def readInstructions(self):
+        with open('instructions-defensive', 'r') as f:
+            self.instructions = pickle.load(f)
     
+    def assignSquads(self, botInst):
+        if self.game.team.flag.position != self.oldFlagPosition and not self.game.team.flag.carrier:
+            self.oldFlagPosition = self.game.team.flag.position
+            try:
+                positions = self.getMostSecurePositions(self.game.team.flag.position)
+                position = positions.pop()
+                teamPosition = self.level.findNearestFreePosition(Vector2(position[0], position[1]))            
+            except:
+                teamPosition, _ = self.getStrategicPostion(self.game.team.flag.position)
+            teamDirs = self.filterInvalidDirs(teamPosition)
+            self.possibleGoals[0] = Goal(Goal.DEFEND, teamPosition, (0,0), priority=0, graph=self.graph, dirs=teamDirs)
+        if botInst[0][botInst[2]] == 0:
+            squad = Squad([botInst[1]], self.possibleGoals[0], commander=self)
+        elif botInst[0][botInst[2]] == 1:
+            squad = Squad([botInst[1]], self.possibleGoals[1], commander=self)
+        elif botInst[0][botInst[2]] == 2:
+            squad = Squad([botInst[1]], self.possibleGoals[2], commander=self)
+        elif botInst[0][botInst[2]] == 3:
+            squad = Squad([botInst[1]], self.possibleGoals[1], commander=self)
+        elif botInst[0][botInst[2]] == 4:
+            squad = Squad([botInst[1]], self.possibleGoals[0], commander=self)
+        else:
+            raise Exception("Invalid range")
+        botInst = (botInst[0], botInst[1], botInst[2]+1)
+        return squad
+    def generateRandomInstructions(self, i):
+        try:
+            return self.instructions[i]
+        except Exception as e:
+            print e
+            lst = []
+            for _ in range(20):
+                lst.append(random.randint(0, 4))
+            return lst
     def getBlockHeightsNearFlag(self):
         flag = self.game.team.flagSpawnLocation
         xmin = flag.x - 5 if flag.x - 5 > 0 else 0
@@ -317,26 +347,21 @@ class FSMCommander(Commander):
         blocks = numpy.array(self.level.blockHeights)
         return blocks[int(xmin):int(xmax), int(ymin):int(ymax)]
         
-        
+
     def shutdown(self):
-#        if self.flagAttackVectors:
-#            while len(self.flagAttackVectors) < 6:
-#                self.flagAttackVectors = self.flagAttackVectors + (0)
-#            print self.flagAttackVectors[:6]
+        self.mapBotInstructions = sorted(self.mapBotInstructions, key=lambda x: x[1].score, reverse=True)
+        for i in self.mapBotInstructions:
+            print i[1].score
+        instructions = map(lambda x: x[0], self.mapBotInstructions[:min(6, len(self.mapBotInstructions))])
+        crossovers = []
+        for i, inst in enumerate(instructions):
+            if self.mapBotInstructions[i][1].score < 100:
+                crossover = inst[:15-i]
+                crossover.extend(instructions[(i+1)%len(instructions)][15-i:])
+                crossovers.append(crossover)
+            else:
+                crossover = inst
+        with open('instructions-defensive', 'w') as f:
+            pickle.dump(crossovers, f)
         
-#        outputField = (self.game.match.scores[self.game.enemyTeam.name])
-#        inputField = numpy.array(self.level.blockHeights).reshape(1, self.level.width*self.level.height)
-#        inputField = tuple(tuple(x) for x in inputField)[0]
-#        inputField = inputField + (self.teamPosition.x,  self.teamPosition.y, self.game.team.flagSpawnLocation.x, self.game.team.flagSpawnLocation.y)
-#        #self.dataset.addSample(inputField, (outputField))
-##        try:
-##            trainer = BackpropTrainer(self.net, self.dataset)
-##            trainer.trainEpochs(epochs=100)
-##        except:
-##            pass
-##         
-##         fileObject = open('network', 'w')
-##         pickle.dump(self.net, fileObject)
-#        with open('data.txt', 'a') as fileObject:
-#			fileObject.write(str((inputField, (outputField)))+ '\n')
         Commander.shutdown(self)
